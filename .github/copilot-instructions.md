@@ -37,6 +37,34 @@ sudo apt update
 sudo apt install libphysiologyedge-dev=2.0.4 libsmartspectra-dev=2.0.4
 ```
 
+### WSL Camera Setup (Windows)
+USB cameras require passthrough from Windows to WSL2 using `usbipd-win`.
+
+#### One-time setup (Windows PowerShell as Admin)
+```powershell
+# Install usbipd-win
+winget install usbipd
+```
+
+#### One-time setup (WSL)
+```bash
+sudo apt install -y v4l-utils linux-tools-generic hwdata usbutils
+```
+
+#### Each session (before running hello_vitals)
+1. **Windows**: Attach camera to WSL
+   ```powershell
+   usbipd list                        # Find your camera's BUSID
+   usbipd bind --busid <BUSID>        # First time only
+   usbipd attach --wsl --busid <BUSID>
+   ```
+
+2. **WSL**: Load the camera driver
+   ```bash
+   sudo modprobe uvcvideo
+   ls /dev/video*                     # Verify camera is available
+   ```
+
 ## Key Conventions
 
 ### C++ Backend Patterns
