@@ -13,3 +13,7 @@ wheels/
 
 # Virtual environments
 .venv
+
+# C++ build files
+build/
+dist/
