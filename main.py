@@ -3,7 +3,7 @@ Helm - Security Vitals Monitoring Application
 
 Main entry point that orchestrates:
 1. FFmpeg camera streaming (Windows)
-2. helm_vitals C++ backend (WSL)  
+2. helm_vitals C++ backend (WSL)
 3. PySide6 GUI (future)
 """
 
@@ -33,14 +33,15 @@ logger.configure(
     ]
 )
 
+
 def load_api_key() -> str:
     """Load API key from gui/settings.json."""
     settings_path = Path(__file__).parent / "gui" / "settings.json"
-    
+
     if not settings_path.exists():
         logger.warning(f"Settings file not found: {settings_path}")
         return ""
-    
+
     try:
         with open(settings_path) as f:
             settings = json.load(f)
@@ -53,23 +54,23 @@ def load_api_key() -> str:
 def handle_message(message: dict):
     """Process incoming messages from helm_vitals backend."""
     msg_type = message.get("type", "unknown")
-    
+
     if msg_type == "status":
         data = message.get("data", {})
         logger.info(f"Status: {data.get('description', 'Unknown')}")
-    
+
     elif msg_type in ("core_metrics", "edge_metrics", "edge_metrics_raw"):
         data = message.get("data", {})
         logger.debug(f"Physiology data: {data}")
         # TODO: React to data
-    
+
     elif msg_type == "error":
         logger.error(f"Backend error: {message.get('message', 'Unknown error')}")
-    
+
     elif msg_type == "system":
         data = message.get("data", {})
         logger.info(f"System: {data.get('event', '')} - {data.get('message', '')}")
-    
+
     else:
         logger.warning(f"Unknown message type: {msg_type}")
 
@@ -78,10 +79,10 @@ def main():
     """Main entry point for Helm application."""
     logger.info("Helm - Security Vitals Monitor")
     logger.info("-" * 40)
-    
+
     # Load API key from gui/settings.json
     api_key = load_api_key()
-    
+
     # Create backend with hardcoded settings
     backend = HelmBackend(
         api_key=api_key,
@@ -91,23 +92,23 @@ def main():
         verbosity=VERBOSITY,
         show_gui=SHOW_GUI,
     )
-    
+
     # Register message handler
     backend.register_callback(handle_message)
-    
+
     # Handle Ctrl+C gracefully
     def signal_handler(sig, frame):
         logger.info("\nShutdown requested...")
         backend.stop()
         sys.exit(0)
-    
+
     signal.signal(signal.SIGINT, signal_handler)
-    
+
     # Start the backend system
     if not backend.start():
         logger.error("Failed to start Helm backend")
         return 1
-    
+
     # Main loop - process messages until stopped
     try:
         logger.info("Processing vitals... Press Ctrl+C to stop")
@@ -121,7 +122,7 @@ def main():
         pass
     finally:
         backend.stop()
-    
+
     return 0
 
 

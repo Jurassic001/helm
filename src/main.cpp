@@ -73,36 +73,36 @@ ABSL_FLAG(bool, show_gui, false, "Show SmartSpectra debug GUI (disables headless
  */
 class JsonOutputter {
 public:
-    void OutputJson(const std::string& json_type, const std::string& json_content) {
+    void output_json(const std::string& json_type, const std::string& json_content) {
         std::lock_guard<std::mutex> lock(output_mutex_);
         std::cout << "{\"type\":\"" << json_type << "\",\"timestamp_ms\":" 
-                  << GetTimestampMs() << ",\"data\":" << json_content << "}" << std::endl;
+                  << get_timestamp_ms() << ",\"data\":" << json_content << "}" << std::endl;
     }
 
-    void OutputError(const std::string& error_message) {
+    void output_error(const std::string& error_message) {
         std::lock_guard<std::mutex> lock(output_mutex_);
-        std::cout << "{\"type\":\"error\",\"timestamp_ms\":" << GetTimestampMs() 
-                  << ",\"message\":\"" << EscapeJson(error_message) << "\"}" << std::endl;
+        std::cout << "{\"type\":\"error\",\"timestamp_ms\":" << get_timestamp_ms() 
+                  << ",\"message\":\"" << escape_json(error_message) << "\"}" << std::endl;
     }
 
-    void OutputStatus(int status_code, const std::string& description, int64_t frame_timestamp) {
+    void output_status(int status_code, const std::string& description, int64_t frame_timestamp) {
         std::lock_guard<std::mutex> lock(output_mutex_);
-        std::cout << "{\"type\":\"status\",\"timestamp_ms\":" << GetTimestampMs()
+        std::cout << "{\"type\":\"status\",\"timestamp_ms\":" << get_timestamp_ms()
                   << ",\"data\":{\"code\":" << status_code 
-                  << ",\"description\":\"" << EscapeJson(description) << "\""
+                  << ",\"description\":\"" << escape_json(description) << "\""
                   << ",\"frame_timestamp\":" << frame_timestamp << "}}" << std::endl;
     }
 
 private:
     std::mutex output_mutex_;
 
-    int64_t GetTimestampMs() {
+    int64_t get_timestamp_ms() {
         return std::chrono::duration_cast<std::chrono::milliseconds>(
             std::chrono::system_clock::now().time_since_epoch()
         ).count();
     }
 
-    std::string EscapeJson(const std::string& input) {
+    std::string escape_json(const std::string& input) {
         std::string output;
         for (char c : input) {
             switch (c) {
@@ -127,7 +127,7 @@ JsonOutputter g_outputter;
  * @brief Extract pulse metrics to JSON string
  * Note: SDK fields are RepeatedPtrField - we get the latest value from each
  */
-std::string ExtractPulseJson(const presage::physiology::MetricsBuffer& metrics) {
+std::string extract_pulse_json(const presage::physiology::MetricsBuffer& metrics) {
     std::stringstream ss;
     ss << "{";
     bool first = true;
@@ -175,7 +175,7 @@ std::string ExtractPulseJson(const presage::physiology::MetricsBuffer& metrics) 
 /**
  * @brief Extract breathing metrics to JSON string
  */
-std::string ExtractBreathingJson(const presage::physiology::MetricsBuffer& metrics) {
+std::string extract_breathing_json(const presage::physiology::MetricsBuffer& metrics) {
     std::stringstream ss;
     ss << "{";
     bool first = true;
@@ -246,7 +246,7 @@ std::string ExtractBreathingJson(const presage::physiology::MetricsBuffer& metri
 /**
  * @brief Extract blood pressure metrics to JSON string
  */
-std::string ExtractBloodPressureJson(const presage::physiology::MetricsBuffer& metrics) {
+std::string extract_blood_pressure_json(const presage::physiology::MetricsBuffer& metrics) {
     std::stringstream ss;
     ss << "{";
     
@@ -271,7 +271,7 @@ std::string ExtractBloodPressureJson(const presage::physiology::MetricsBuffer& m
 /**
  * @brief Extract face detection metrics to JSON string
  */
-std::string ExtractFaceJson(const presage::physiology::MetricsBuffer& metrics) {
+std::string extract_face_json(const presage::physiology::MetricsBuffer& metrics) {
     std::stringstream ss;
     ss << "{";
     bool first = true;
@@ -318,7 +318,7 @@ std::string ExtractFaceJson(const presage::physiology::MetricsBuffer& metrics) {
 /**
  * @brief Extract edge metrics (real-time) to JSON string
  */
-std::string ExtractEdgeMetricsJson(const presage::physiology::Metrics& metrics) {
+std::string extract_edge_metrics_json(const presage::physiology::Metrics& metrics) {
     std::stringstream ss;
     ss << "{";
     bool first = true;
@@ -388,7 +388,7 @@ std::string ExtractEdgeMetricsJson(const presage::physiology::Metrics& metrics) 
 
 // ================================ MAIN APPLICATION ================================
 
-absl::Status RunVitalsMonitor(
+absl::Status run_vitals_monitor(
     settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest>& settings,
     bool show_gui
 ) {
@@ -415,7 +415,7 @@ absl::Status RunVitalsMonitor(
     // Status change callback - outputs face positioning/lighting feedback
     MP_RETURN_IF_ERROR(container.SetOnStatusChange(
         [verbosity](presage::physiology::StatusValue status) -> absl::Status {
-            g_outputter.OutputStatus(
+            g_outputter.output_status(
                 static_cast<int>(status.value()),
                 presage::physiology::GetStatusDescription(status.value()),
                 status.timestamp()
@@ -434,13 +434,13 @@ absl::Status RunVitalsMonitor(
             std::stringstream ss;
             ss << "{";
             ss << "\"frame_timestamp\":" << timestamp_milliseconds;
-            ss << ",\"pulse\":" << ExtractPulseJson(metrics_buffer);
-            ss << ",\"breathing\":" << ExtractBreathingJson(metrics_buffer);
-            ss << ",\"blood_pressure\":" << ExtractBloodPressureJson(metrics_buffer);
-            ss << ",\"face\":" << ExtractFaceJson(metrics_buffer);
+            ss << ",\"pulse\":" << extract_pulse_json(metrics_buffer);
+            ss << ",\"breathing\":" << extract_breathing_json(metrics_buffer);
+            ss << ",\"blood_pressure\":" << extract_blood_pressure_json(metrics_buffer);
+            ss << ",\"face\":" << extract_face_json(metrics_buffer);
             ss << "}";
             
-            g_outputter.OutputJson("core_metrics", ss.str());
+            g_outputter.output_json("core_metrics", ss.str());
             
             // Also output raw protobuf JSON for debugging at high verbosity
             if (verbosity >= 3) {
@@ -448,7 +448,7 @@ absl::Status RunVitalsMonitor(
                 google::protobuf::util::JsonPrintOptions options;
                 options.add_whitespace = false;
                 google::protobuf::util::MessageToJsonString(metrics_buffer, &raw_json, options);
-                g_outputter.OutputJson("core_metrics_raw", raw_json);
+                g_outputter.output_json("core_metrics_raw", raw_json);
             }
             
             return absl::OkStatus();
@@ -460,8 +460,8 @@ absl::Status RunVitalsMonitor(
     if (enable_edge_metrics) {
         MP_RETURN_IF_ERROR(container.SetOnEdgeMetricsOutput(
             [verbosity](const presage::physiology::Metrics& metrics, int64_t input_timestamp) {
-                std::string edge_json = ExtractEdgeMetricsJson(metrics);
-                g_outputter.OutputJson("edge_metrics", edge_json);
+                std::string edge_json = extract_edge_metrics_json(metrics);
+                g_outputter.output_json("edge_metrics", edge_json);
                 
                 // Raw output at high verbosity
                 if (verbosity >= 3) {
@@ -469,7 +469,7 @@ absl::Status RunVitalsMonitor(
                     google::protobuf::util::JsonPrintOptions options;
                     options.add_whitespace = false;
                     google::protobuf::util::MessageToJsonString(metrics, &raw_json, options);
-                    g_outputter.OutputJson("edge_metrics_raw", raw_json);
+                    g_outputter.output_json("edge_metrics_raw", raw_json);
                 }
                 
                 return absl::OkStatus();
@@ -481,7 +481,7 @@ absl::Status RunVitalsMonitor(
     MP_RETURN_IF_ERROR(container.Initialize());
     
     // Output startup message
-    g_outputter.OutputJson("system", "{\"event\":\"initialized\",\"message\":\"Vitals monitoring started\"}");
+    g_outputter.output_json("system", "{\"event\":\"initialized\",\"message\":\"Vitals monitoring started\"}");
     
     MP_RETURN_IF_ERROR(container.Run());
     
@@ -528,7 +528,7 @@ int main(int argc, char** argv) {
         if (env_key) {
             api_key = env_key;
         } else {
-            g_outputter.OutputError("API key required. Use --api_key or set SMARTSPECTRA_API_KEY");
+            g_outputter.output_error("API key required. Use --api_key or set SMARTSPECTRA_API_KEY");
             return EXIT_FAILURE;
         }
     }
@@ -541,7 +541,7 @@ int main(int argc, char** argv) {
     if (!video_url.empty()) {
         // Use network stream (from Windows FFmpeg)
         app_settings.video_source.input_video_path = video_url;
-        g_outputter.OutputJson("system", 
+        g_outputter.output_json("system", 
             "{\"event\":\"video_source\",\"type\":\"stream\",\"url\":\"" + video_url + "\"}");
     } else {
         // Use local camera device
@@ -577,13 +577,13 @@ int main(int argc, char** argv) {
     app_settings.integration.api_key = api_key;
 
     bool show_gui = absl::GetFlag(FLAGS_show_gui);
-    absl::Status status = RunVitalsMonitor(app_settings, show_gui);
+    absl::Status status = run_vitals_monitor(app_settings, show_gui);
 
     if (!status.ok()) {
-        g_outputter.OutputError(std::string(status.message()));
+        g_outputter.output_error(std::string(status.message()));
         return EXIT_FAILURE;
     }
     
-    g_outputter.OutputJson("system", "{\"event\":\"shutdown\",\"message\":\"Vitals monitoring stopped\"}");
+    g_outputter.output_json("system", "{\"event\":\"shutdown\",\"message\":\"Vitals monitoring stopped\"}");
     return 0;
 }

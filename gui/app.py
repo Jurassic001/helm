@@ -1,19 +1,18 @@
-import sys
 import os
+import sys
+
 import cv2
+from PySide6.QtCore import QFile, Qt, QTimer
+from PySide6.QtGui import QColor, QImage, QPixmap
+from PySide6.QtUiTools import QUiLoader
+from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QTextBrowser
+
+from lib.threat_eval import ThreatDetector
 
 # Ensure project root is on sys.path for lib imports when running as script
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
-
-from lib.ThreatEval import ThreatDetector
-
-from PySide6.QtWidgets import QApplication, QLabel, QComboBox, QMessageBox, QPushButton, QTextBrowser
-from PySide6.QtCore import QTimer, Qt, QFile
-from PySide6.QtGui import QImage, QPixmap, QColor
-from PySide6.QtUiTools import QUiLoader
-
 
 
 class MainWindow:
@@ -42,13 +41,12 @@ class MainWindow:
         },
     }
 
-
     def __init__(self, detector: ThreatDetector):
         self.detector = detector
         # Variable for composite threat score
-        self.composite_threat_score = 0 # number 0-1 representing overall threat level
+        self.composite_threat_score = 0  # number 0-1 representing overall threat level
         # Variable for current security level
-        self.current_security_level = "LOW"  # Possible values: "LOW", "MEDIUM", "HIGH"    
+        self.current_security_level = "LOW"  # Possible values: "LOW", "MEDIUM", "HIGH"
         # Variable for vitals dictionary
         self.vitals = {}
 
@@ -77,9 +75,7 @@ class MainWindow:
         # --- Access QLabel for camera feed ---
         self.camera_label = self.window.findChild(QLabel, "camera_label")
         if self.camera_label is None:
-            raise RuntimeError(
-                "camera_label not found. Make sure QLabel objectName is 'camera_label'"
-            )
+            raise RuntimeError("camera_label not found. Make sure QLabel objectName is 'camera_label'")
 
         # --- Set initial window size ---
 
@@ -113,7 +109,7 @@ class MainWindow:
             # Capture initial selection and connect handler
             initial_level_text = sec_level_combo.currentText()
             sec_level_combo.currentTextChanged.connect(self.update_security_level)
-        
+
         # Threat level label
         self.threat_level_label = self.window.findChild(QLabel, "threat_level_label")
         if self.threat_level_label:
@@ -179,10 +175,8 @@ class MainWindow:
 
     def calculate_threat_estimate(self):
         """Calculate threat estimate based on composite_threat_score and security level"""
-        thresholds = self.THREAT_THRESHOLDS.get(
-            self.current_security_level, self.THREAT_THRESHOLDS["MEDIUM"]
-        )
-        
+        thresholds = self.THREAT_THRESHOLDS.get(self.current_security_level, self.THREAT_THRESHOLDS["MEDIUM"])
+
         # Determine threat estimate based on score
         if self.composite_threat_score == 0.0:
             new_estimate = "FRAME CLEAR"
@@ -196,7 +190,7 @@ class MainWindow:
             new_estimate = "WARNING"
         else:
             new_estimate = "DANGER"
-        
+
         # Update the threat level if it changed
         if new_estimate != self.threat_estimate:
             self.update_threat_level(new_estimate)
@@ -223,7 +217,9 @@ class MainWindow:
         icon_pixmap = QPixmap("gui/assets/info_icon.png")
         if not icon_pixmap.isNull():
             # Scale to standard icon size (e.g., 32x32)
-            scaled_pixmap = icon_pixmap.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            scaled_pixmap = icon_pixmap.scaled(
+                32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation
+            )
             msg_box.setIconPixmap(scaled_pixmap)
         else:
             msg_box.setIcon(QMessageBox.Icon.Information)  # Fallback to default
@@ -244,32 +240,32 @@ class MainWindow:
         if threat_score is not None:
             self.composite_threat_score = threat_score
             self.calculate_threat_estimate()
-        
+
         self.vitals = self.detector.get_all_metrics()
-        
+
         # Update stats_text with vitals dictionary
         if self.stats_text and self.vitals:
             # Map keys to plain English with units
             labels = {
-                'heart_rate': ('Heart Rate', 'BPM'),
-                'breathing_rate': ('Breathing Rate', 'BPM'),
-                'eda': ('EDA', ''),
-                'chest_breathing': ('Chest Breathing', '')
+                "heart_rate": ("Heart Rate", "BPM"),
+                "breathing_rate": ("Breathing Rate", "BPM"),
+                "eda": ("EDA", ""),
+                "chest_breathing": ("Chest Breathing", ""),
             }
-            
+
             vitals_lines = []
             for key, value in self.vitals.items():
-                label, unit = labels.get(key, (key.replace('_', ' ').title(), ''))
+                label, unit = labels.get(key, (key.replace("_", " ").title(), ""))
                 if value is not None:
                     formatted_value = f"{value:.1f}" if isinstance(value, (int, float)) else str(value)
-                    if unit and key != 'threat_score':
+                    if unit and key != "threat_score":
                         vitals_lines.append(f"{label}: {formatted_value} {unit}")
                     else:
-                        if key != 'threat_score':
+                        if key != "threat_score":
                             vitals_lines.append(f"{label}: {formatted_value}")
                 else:
                     vitals_lines.append(f"{label}: --")
-            
+
             self.stats_text.setText("\n".join(vitals_lines))
 
         ret, frame = self.cap.read()
