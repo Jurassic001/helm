@@ -77,7 +77,7 @@ def handle_message(message: dict):
 
 def main():
     """Main entry point for Helm application."""
-    logger.info("Helm - Security Vitals Monitor")
+    logger.info(" === Helm - Security Vitals Monitor === ")
     logger.info("-" * 40)
 
     # Load API key from gui/settings.json
