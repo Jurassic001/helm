@@ -4,9 +4,9 @@ import cv2
 import mediapipe as mp
 from loguru import logger
 from PySide6.QtCore import QFile, Qt, QTimer
-from PySide6.QtGui import QColor, QImage, QPixmap
+from PySide6.QtGui import QColor, QImage, QPalette, QPixmap
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QTextBrowser
+from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QStyleFactory, QTextBrowser
 
 from lib.threat_eval import ThreatDetector
 
@@ -51,6 +51,9 @@ class MainWindow:
         # Variable to track threat estimate
         self.threat_estimate = "FRAME CLEAR"  # Possible values: "FRAME CLEAR", "SAFE", "CAUTION", "WARNING", "DANGER"
         self.wireframe_color = (255, 255, 255)
+        
+        # Theme tracking
+        self.current_theme = "System"  # Possible values: "System", "Light", "Dark"
 
         # --- Load UI ---
         ui_path = os.path.join(os.path.dirname(__file__), "designer2.ui")
@@ -136,6 +139,14 @@ class MainWindow:
             )
             quit_button.clicked.connect(self.handle_quit)
 
+        # Theme combo box
+        theme_combo = self.window.findChild(QComboBox, "theme_combo")
+        if theme_combo:
+            self.theme_combo = theme_combo
+            theme_combo.currentTextChanged.connect(self.apply_theme)
+            # Apply system theme on startup
+            self.apply_theme("System")
+
     def update_threat_level(self, threat_estimate):
         """Update the threat level label text and color"""
         self.threat_estimate = threat_estimate
@@ -173,6 +184,252 @@ class MainWindow:
             self.sec_level_combo.setStyleSheet(f"color: {color};")
         # Re-calculate threat estimate with new security level
         self.calculate_threat_estimate()
+
+    def _is_system_dark_mode(self) -> bool:
+        """Detect if the system is using dark mode"""
+        app = QApplication.instance()
+        if app:
+            palette = app.palette()
+            # Compare window background lightness - dark themes have low lightness
+            bg_color = palette.color(QPalette.ColorRole.Window)
+            return bg_color.lightness() < 128
+        return False
+
+    def apply_theme(self, theme: str):
+        """Apply the selected theme (System, Light, or Dark)"""
+        self.current_theme = theme
+        
+        # Determine effective theme
+        if theme == "System":
+            use_dark = self._is_system_dark_mode()
+        elif theme == "Dark":
+            use_dark = True
+        else:  # Light
+            use_dark = False
+        
+        # Clear inline stylesheets from child widgets (they override parent styles)
+        self._clear_child_stylesheets()
+        
+        if use_dark:
+            self._apply_dark_theme()
+        else:
+            self._apply_light_theme()
+        
+        # Re-apply threat level styling after theme change
+        self.update_threat_level(self.threat_estimate)
+        # Re-apply security level combo styling
+        self.update_security_level(self.sec_level_combo.currentText() if hasattr(self, 'sec_level_combo') else "Low")
+
+    def _clear_child_stylesheets(self):
+        """Clear inline stylesheets from child widgets so parent theme can apply"""
+        from PySide6.QtWidgets import QWidget
+        
+        # Find all child widgets and clear their inline stylesheets
+        for child in self.window.findChildren(QWidget):
+            if child.styleSheet():
+                child.setStyleSheet("")
+
+    def _apply_light_theme(self):
+        """Apply light theme stylesheet"""
+        light_style = """
+            QDialog {
+                background-color: #f8fafc;
+            }
+            QTabWidget::pane {
+                border: none;
+                background-color: #ffffff;
+                border-radius: 8px;
+            }
+            QTabBar::tab {
+                background-color: #e2e8f0;
+                color: #64748b;
+                padding: 10px 24px;
+                margin-right: 2px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                font-weight: bold;
+            }
+            QTabBar::tab:selected {
+                background-color: #ffffff;
+                color: #1e40af;
+            }
+            QTabBar::tab:hover:!selected {
+                background-color: #cbd5e1;
+                color: #1e40af;
+            }
+            QLabel {
+                color: #334155;
+            }
+            QPushButton {
+                background-color: #3b82f6;
+                color: #ffffff;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+            QPushButton:pressed {
+                background-color: #1d4ed8;
+            }
+            QComboBox {
+                background-color: #ffffff;
+                color: #334155;
+                border: 1px solid #cbd5e1;
+                padding: 6px 12px;
+                border-radius: 6px;
+            }
+            QComboBox:hover {
+                border-color: #3b82f6;
+            }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 8px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #ffffff;
+                color: #334155;
+                selection-background-color: #dbeafe;
+            }
+            QTextBrowser {
+                background-color: #f1f5f9;
+                color: #334155;
+                border: 1px solid #e2e8f0;
+                border-radius: 6px;
+                padding: 8px;
+            }
+            QFrame#left_feed_frame, QFrame#analysis_frame, QFrame#right_feed_frame, QFrame#controls_frame {
+                background-color: #f8fafc;
+                border-radius: 10px;
+                border: 1px solid #e2e8f0;
+            }
+            QLabel#camera_label, QLabel#camera_feed_2 {
+                background-color: #1e293b;
+                border: 2px solid #cbd5e1;
+                border-radius: 8px;
+                color: #94a3b8;
+            }
+            QLabel#live_feed_title, QLabel#augmented_feed_title, QLabel#analysis_label, QLabel#controls_label {
+                color: #475569;
+                background: transparent;
+            }
+            QLabel#sec_level_label, QLabel#theme_label {
+                color: #334155;
+                background: transparent;
+            }
+            QLabel#summary_label {
+                color: #64748b;
+                background: transparent;
+            }
+            QLabel#status_label {
+                color: #22c55e;
+                background: transparent;
+            }
+        """
+        self.window.setStyleSheet(light_style)
+
+    def _apply_dark_theme(self):
+        """Apply dark theme stylesheet"""
+        dark_style = """
+            QDialog {
+                background-color: #0f172a;
+            }
+            QTabWidget::pane {
+                border: none;
+                background-color: #1e293b;
+                border-radius: 8px;
+            }
+            QTabBar::tab {
+                background-color: #334155;
+                color: #94a3b8;
+                padding: 10px 24px;
+                margin-right: 2px;
+                border-top-left-radius: 6px;
+                border-top-right-radius: 6px;
+                font-weight: bold;
+            }
+            QTabBar::tab:selected {
+                background-color: #1e293b;
+                color: #60a5fa;
+            }
+            QTabBar::tab:hover:!selected {
+                background-color: #475569;
+                color: #60a5fa;
+            }
+            QLabel {
+                color: #e2e8f0;
+            }
+            QPushButton {
+                background-color: #3b82f6;
+                color: #ffffff;
+                border: none;
+                padding: 8px 16px;
+                border-radius: 6px;
+                font-weight: bold;
+            }
+            QPushButton:hover {
+                background-color: #2563eb;
+            }
+            QPushButton:pressed {
+                background-color: #1d4ed8;
+            }
+            QComboBox {
+                background-color: #334155;
+                color: #e2e8f0;
+                border: 1px solid #475569;
+                padding: 6px 12px;
+                border-radius: 6px;
+            }
+            QComboBox:hover {
+                border-color: #3b82f6;
+            }
+            QComboBox::drop-down {
+                border: none;
+                padding-right: 8px;
+            }
+            QComboBox QAbstractItemView {
+                background-color: #334155;
+                color: #e2e8f0;
+                selection-background-color: #1e40af;
+            }
+            QTextBrowser {
+                background-color: #1e293b;
+                color: #e2e8f0;
+                border: 1px solid #334155;
+                border-radius: 6px;
+                padding: 8px;
+            }
+            QFrame#left_feed_frame, QFrame#analysis_frame, QFrame#right_feed_frame, QFrame#controls_frame {
+                background-color: #1e293b;
+                border-radius: 10px;
+                border: 1px solid #334155;
+            }
+            QLabel#camera_label, QLabel#camera_feed_2 {
+                background-color: #0f172a;
+                border: 2px solid #475569;
+                border-radius: 8px;
+                color: #64748b;
+            }
+            QLabel#live_feed_title, QLabel#augmented_feed_title, QLabel#analysis_label, QLabel#controls_label {
+                color: #94a3b8;
+                background: transparent;
+            }
+            QLabel#sec_level_label, QLabel#theme_label {
+                color: #cbd5e1;
+                background: transparent;
+            }
+            QLabel#summary_label {
+                color: #94a3b8;
+                background: transparent;
+            }
+            QLabel#status_label {
+                color: #22c55e;
+                background: transparent;
+            }
+        """
+        self.window.setStyleSheet(dark_style)
 
     def calculate_threat_estimate(self):
         """Calculate threat estimate based on composite_threat_score and security level"""
@@ -392,7 +649,16 @@ class MainWindow:
             self.threat_score = self.detector.process_message(message)
 
     def show(self):
+        # Use WindowStaysOnTopHint temporarily to force window to front on Windows
+        from PySide6.QtCore import Qt as QtCore
+        original_flags = self.window.windowFlags()
+        self.window.setWindowFlags(original_flags | QtCore.WindowStaysOnTopHint)
         self.window.show()
+        # Remove the always-on-top flag but keep window in front
+        self.window.setWindowFlags(original_flags)
+        self.window.show()
+        self.window.raise_()
+        self.window.activateWindow()
 
     def close(self):
         self.timer.stop()
