@@ -489,6 +489,16 @@ absl::Status RunVitalsMonitor(
 }
 
 int main(int argc, char** argv) {
+    // Disable stdout buffering for real-time JSON output to Python
+    // When stdout is piped, C++ stdlib defaults to 4KB block buffering
+    // This ensures each JSON line is immediately available to the reader
+    setvbuf(stdout, NULL, _IONBF, 0);
+    
+    // Suppress SDK internal warnings (one_euro_filter timestamp warnings)
+    // Must be set BEFORE InitGoogleLogging()
+    // 0=INFO, 1=WARNING, 2=ERROR, 3=FATAL
+    FLAGS_minloglevel = 2;  // Only show ERROR and FATAL
+    
     google::InitGoogleLogging(argv[0]);
     
     absl::SetProgramUsageMessage(
@@ -544,7 +554,7 @@ int main(int argc, char** argv) {
     
     // General settings
     app_settings.headless = !absl::GetFlag(FLAGS_show_gui);  // Show GUI if --show_gui is set
-    app_settings.interframe_delay_ms = 20;
+    app_settings.interframe_delay_ms = 33;  // ~30 FPS to match camera frame rate
     app_settings.start_with_recording_on = true;  // Start immediately
     app_settings.scale_input = true;
     app_settings.binary_graph = true;
