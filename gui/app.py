@@ -8,6 +8,7 @@ from PySide6.QtGui import QImage, QPixmap, QColor
 from PySide6.QtUiTools import QUiLoader
 
 
+
 class MainWindow:
     # Thresholds per security level to avoid rebuilding dicts every call
     THREAT_THRESHOLDS = {
@@ -33,6 +34,11 @@ class MainWindow:
             "DANGER": 0.60,
         },
     }
+    def update_threat_score(self, new_score):
+        """Update the composite threat score and refresh the threat estimate."""
+        self.composite_threat_score = new_score
+
+
     def __init__(self):
         # Variable for composite threat score
         self.composite_threat_score = 0.4 # number 0-1 representing overall threat level
