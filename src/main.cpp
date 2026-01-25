@@ -24,6 +24,7 @@
 #include <absl/flags/parse.h>
 #include <absl/flags/usage.h>
 #include <glog/logging.h>
+#include <opencv2/highgui.hpp>
 #include <physiology/modules/configuration.h>
 #include <physiology/modules/messages/metrics.h>
 #include <smartspectra/container/settings.hpp>
@@ -56,6 +57,9 @@ ABSL_FLAG(bool, enable_phasic_bp, false, "Enable phasic blood pressure computati
 ABSL_FLAG(bool, enable_eda, false, "Enable electrodermal activity computation (requires model)");
 ABSL_FLAG(bool, enable_micromotion, false, "Enable micromotion (requires thighs/knees visible)");
 ABSL_FLAG(bool, enable_edge_metrics, true, "Enable real-time edge metrics");
+
+// Debug options
+ABSL_FLAG(bool, show_gui, false, "Show SmartSpectra debug GUI (disables headless mode)");
 
 // ================================ JSON OUTPUT HELPERS ================================
 
@@ -380,12 +384,28 @@ std::string ExtractEdgeMetricsJson(const presage::physiology::Metrics& metrics) 
 // ================================ MAIN APPLICATION ================================
 
 absl::Status RunVitalsMonitor(
-    settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest>& settings
+    settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest>& settings,
+    bool show_gui
 ) {
     spectra::container::CpuContinuousRestForegroundContainer container(settings);
     
     bool enable_edge_metrics = absl::GetFlag(FLAGS_enable_edge_metrics);
     int verbosity = absl::GetFlag(FLAGS_verbosity);
+
+    // Video output callback - displays GUI when --show_gui is enabled
+    if (show_gui) {
+        MP_RETURN_IF_ERROR(container.SetOnVideoOutput(
+            [](cv::Mat& output_frame, int64_t timestamp_milliseconds) -> absl::Status {
+                cv::imshow("Helm Vitals Monitor", output_frame);
+                // Process key events - 'q' or ESC to quit
+                int key = cv::waitKey(1);
+                if (key == 'q' || key == 27) {  // 'q' or ESC
+                    return absl::CancelledError("User requested quit");
+                }
+                return absl::OkStatus();
+            }
+        ));
+    }
 
     // Status change callback - outputs face positioning/lighting feedback
     MP_RETURN_IF_ERROR(container.SetOnStatusChange(
@@ -475,7 +495,9 @@ int main(int argc, char** argv) {
         "  core_metrics - Processed vitals from cloud (pulse, breathing, BP, face)\n"
         "  edge_metrics - Real-time local metrics (breathing traces, EDA)\n"
         "  error        - Error messages\n"
-        "  system       - System events (initialized, shutdown)\n"
+        "  system       - System events (initialized, shutdown)\n\n"
+        "Debug options:\n"
+        "  --show_gui   - Show SmartSpectra debug GUI (default: headless)\n"
     );
     absl::ParseCommandLine(argc, argv);
     
@@ -495,16 +517,15 @@ int main(int argc, char** argv) {
     // Build settings for headless 4K capture
     settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest> app_settings{};
     
-    // Video source settings (4K camera)
+    // Video source settings
     app_settings.video_source.device_index = absl::GetFlag(FLAGS_camera_device_index);
-    app_settings.video_source.resolution_selection_mode = vs::ResolutionSelectionMode::Exact;
     app_settings.video_source.capture_width_px = absl::GetFlag(FLAGS_capture_width_px);
     app_settings.video_source.capture_height_px = absl::GetFlag(FLAGS_capture_height_px);
     app_settings.video_source.codec = absl::GetFlag(FLAGS_codec);
-    app_settings.video_source.auto_lock = true;
+    app_settings.video_source.auto_lock = false;  // Disable auto exposure lock for better compatibility
     
     // General settings
-    app_settings.headless = true;  // No GUI - output to stdout only
+    app_settings.headless = !absl::GetFlag(FLAGS_show_gui);  // Show GUI if --show_gui is set
     app_settings.interframe_delay_ms = 20;
     app_settings.start_with_recording_on = true;  // Start immediately
     app_settings.scale_input = true;
@@ -527,7 +548,8 @@ int main(int argc, char** argv) {
     // REST API settings
     app_settings.integration.api_key = api_key;
 
-    absl::Status status = RunVitalsMonitor(app_settings);
+    bool show_gui = absl::GetFlag(FLAGS_show_gui);
+    absl::Status status = RunVitalsMonitor(app_settings, show_gui);
 
     if (!status.ok()) {
         g_outputter.OutputError(std::string(status.message()));
