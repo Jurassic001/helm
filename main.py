@@ -10,24 +10,27 @@ Main entry point that orchestrates:
 import json
 import signal
 import sys
+import threading
 from pathlib import Path
 
 from loguru import logger
+from PySide6.QtWidgets import QApplication
 
+from gui.app import MainWindow
 from lib.startup import HelmBackend, Resolution
 
 # Hardcoded settings
 CAMERA_NAME = "Logitech BRIO"
 RESOLUTION = Resolution.RES_1080P  # 4K not available via DirectShow on Windows
 STREAM_PORT = 5000
-VERBOSITY = 1
+VERBOSITY = 3
 SHOW_GUI = False
 
 logger.configure(
     handlers=[
         {
             "sink": sys.stderr,
-            "level": "TRACE" if VERBOSITY == 3 else "DEBUG" if VERBOSITY == 2 else "INFO",
+            "level": "TRACE" if VERBOSITY == 3 else "DEBUG" if VERBOSITY == 2 else "ERROR",
             "format": "<lvl><b>{level}</b></lvl> on <c>{module}</c>:<c>{function}</c>:<c>{line}</c> after <g>{elapsed.seconds} second(s)</g> - <lvl>{message}</lvl>",
         }
     ]
@@ -59,10 +62,9 @@ def handle_message(message: dict):
         data = message.get("data", {})
         logger.info(f"Status: {data.get('description', 'Unknown')}")
 
-    elif msg_type in ("core_metrics", "edge_metrics", "edge_metrics_raw"):
+    elif msg_type in ("core_metrics", "edge_metrics"):
         data = message.get("data", {})
         logger.debug(f"Physiology data: {data}")
-        # TODO: React to data
 
     elif msg_type == "error":
         logger.error(f"Backend error: {message.get('message', 'Unknown error')}")
@@ -77,9 +79,6 @@ def handle_message(message: dict):
 
 def main():
     """Main entry point for Helm application."""
-    logger.info(" === Helm - Security Vitals Monitor === ")
-    logger.info("-" * 40)
-
     # Load API key from gui/settings.json
     api_key = load_api_key()
 
@@ -93,13 +92,21 @@ def main():
         show_gui=SHOW_GUI,
     )
 
+    # Create the GUI
+    app = QApplication(sys.argv)
+    main_window = MainWindow()
+    app.aboutToQuit.connect(main_window.close)
+    main_window.show()
+
     # Register message handler
+    backend.register_callback(main_window.gui_message_handler)
     backend.register_callback(handle_message)
 
     # Handle Ctrl+C gracefully
     def signal_handler(sig, frame):
         logger.info("\nShutdown requested...")
         backend.stop()
+        main_window.close()
         sys.exit(0)
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -111,17 +118,13 @@ def main():
 
     # Main loop - process messages until stopped
     try:
-        logger.info("Processing vitals... Press Ctrl+C to stop")
-        while backend.is_running:
-            # Messages are handled by callback, but we could also poll here
-            message = backend.get_message(timeout=1.0)
-            if message:
-                # Additional processing if needed
-                pass
+        logger.info("Processing vitals... Ctrl+C to stop")
+        app.exec()
     except KeyboardInterrupt:
         pass
     finally:
         backend.stop()
+        main_window.close()
 
     return 0
 

@@ -1,18 +1,13 @@
 import os
-import sys
 
 import cv2
+from loguru import logger
 from PySide6.QtCore import QFile, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QPixmap
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QTextBrowser
 
 from lib.threat_eval import ThreatDetector
-
-# Ensure project root is on sys.path for lib imports when running as script
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
 
 
 class MainWindow:
@@ -41,8 +36,9 @@ class MainWindow:
         },
     }
 
-    def __init__(self, detector: ThreatDetector):
-        self.detector = detector
+    def __init__(self):
+        # --- Initialize variables ---
+        self.detector = ThreatDetector()
         # Variable for composite threat score
         self.composite_threat_score = 0  # number 0-1 representing overall threat level
         # Variable for current security level
@@ -233,12 +229,8 @@ class MainWindow:
             app.quit()
 
     def update_frame(self):
-        # TODO: Replace with real incoming packet; this is a placeholder sample
-        sample_packet = '{"type":"core_metrics","timestamp_ms":1769308247784,"data":{"pulse":{"heart_rate":{"value":85,"stable":true,"confidence":0.95}},"breathing":{"respiratory_rate":{"value":18,"stable":true}}}}'
-
-        threat_score = self.detector.process_packet(sample_packet)
-        if threat_score is not None:
-            self.composite_threat_score = threat_score
+        if self.threat_score is not None:
+            self.composite_threat_score = self.threat_score
             self.calculate_threat_estimate()
 
         self.vitals = self.detector.get_all_metrics()
@@ -296,23 +288,15 @@ class MainWindow:
         cropped = scaled.copy(x_offset, y_offset, target_w, target_h)
         self.camera_label.setPixmap(cropped)
 
+    def gui_message_handler(self, message: dict):
+        """Evaluate threat score from incoming message"""
+        data = message.get("data", {})
+        self.threat_score = self.detector.process_message(data)
+
     def show(self):
         self.window.show()
 
     def close(self):
         self.timer.stop()
         self.cap.release()
-
-
-if __name__ == "__main__":
-    app = QApplication(sys.argv)
-
-    detector = ThreatDetector()
-
-    main_window = MainWindow(detector)
-
-    app.aboutToQuit.connect(main_window.close)
-
-    main_window.show()
-
-    sys.exit(app.exec())
+        logger.debug("MainWindow closed and resources released")

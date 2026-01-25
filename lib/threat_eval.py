@@ -1,4 +1,3 @@
-import json
 import time
 from collections import deque
 from typing import Dict, Optional
@@ -36,25 +35,10 @@ class ThreatDetector:
         # Last calculation time
         self.last_calculation_time = time.time()
 
-    def process_packet(self, packet_string: str) -> Optional[float]:
-        """
-        Process a JSON packet string from Presage
-        Collects data and calculates threat score every 0.5 seconds
-
-        Returns:
-            Threat score (0-1) or None if not ready yet
-        """
-        try:
-            message = json.loads(packet_string)
-            return self.process_message(message)
-        except json.JSONDecodeError as e:
-            print(f"Error parsing JSON: {e}")
-            return None
-
-    def process_message(self, message: Dict) -> Optional[float]:
+    def process_message(self, message: dict) -> Optional[float]:
         """Process incoming Presage messages and add to buffers"""
         msg_type = message.get("type")
-        timestamp_ms = message.get("timestamp_ms")
+        timestamp_ms = message.get("timestamp_ms", time.time() * 1000)
         data = message.get("data", {})
 
         current_time = time.time()
@@ -62,6 +46,7 @@ class ThreatDetector:
         # Extract and buffer data
         if msg_type == "core_metrics":
             self._buffer_core_metrics(data, timestamp_ms)
+            logger.warning
         elif msg_type == "edge_metrics":
             self._buffer_edge_metrics(data, timestamp_ms)
 
@@ -269,17 +254,3 @@ class ThreatDetector:
             "chest_breathing": self.current_chest_breathing,
             "threat_score": self.current_threat_score,
         }
-
-
-# Simple usage example
-if __name__ == "__main__":
-    detector = ThreatDetector(averaging_window=0.5)
-
-    # Example: process a JSON packet
-    packet = '{"type":"core_metrics","timestamp_ms":1769308247784,"data":{"pulse":{"heart_rate":{"value":85,"stable":true,"confidence":0.95}},"breathing":{"respiratory_rate":{"value":18,"stable":true}}}}'
-
-    threat_score = detector.process_packet(packet)
-
-    if threat_score is not None:
-        print(f"Threat Score: {threat_score:.3f}")
-        print(f"Heart Rate: {detector.get_heart_rate():.1f}")
