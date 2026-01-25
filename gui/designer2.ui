@@ -10,14 +10,26 @@
     <height>580</height>
    </rect>
   </property>
+  <property name="sizePolicy">
+   <sizepolicy hsizetype="Expanding" vsizetype="Expanding">
+    <horstretch>0</horstretch>
+    <verstretch>0</verstretch>
+   </sizepolicy>
+  </property>
   <property name="font">
    <font>
     <family>Segoe UI</family>
     <pointsize>10</pointsize>
    </font>
   </property>
+  <property name="focusPolicy">
+   <enum>Qt::FocusPolicy::StrongFocus</enum>
+  </property>
   <property name="windowTitle">
    <string>HELM Dashboard</string>
+  </property>
+  <property name="autoFillBackground">
+   <bool>false</bool>
   </property>
   <property name="styleSheet">
    <string notr="true">QDialog {
@@ -396,6 +408,19 @@ color: #94a3b8;</string>
      <property name="frameShape">
       <enum>QFrame::Shape::StyledPanel</enum>
      </property>
+     <widget class="QPushButton" name="help_button">
+      <property name="geometry">
+       <rect>
+        <x>690</x>
+        <y>10</y>
+        <width>140</width>
+        <height>40</height>
+       </rect>
+      </property>
+      <property name="text">
+       <string>Help Guide</string>
+      </property>
+     </widget>
     </widget>
     <widget class="QLabel" name="controls_label">
      <property name="geometry">
@@ -493,32 +518,19 @@ color: #94a3b8;</string>
       <string>System Active - Monitoring</string>
      </property>
     </widget>
-    <widget class="QPushButton" name="help_button">
+    <widget class="QPushButton" name="quit_button">
      <property name="geometry">
       <rect>
        <x>710</x>
-         <y>400</y>
+       <y>450</y>
        <width>140</width>
        <height>40</height>
       </rect>
      </property>
      <property name="text">
-      <string>Help Guide</string>
+      <string>Quit</string>
      </property>
     </widget>
-     <widget class="QPushButton" name="quit_button">
-      <property name="geometry">
-        <rect>
-         <x>710</x>
-         <y>450</y>
-         <width>140</width>
-         <height>40</height>
-        </rect>
-      </property>
-      <property name="text">
-        <string>Quit</string>
-      </property>
-     </widget>
    </widget>
    <widget class="QWidget" name="accessibility">
     <property name="styleSheet">

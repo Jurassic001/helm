@@ -6,16 +6,6 @@ Orchestrates the startup sequence:
 2. Start helm_vitals C++ backend in WSL
 3. Provide JSON output stream to the GUI
 
-Usage:
-    from lib.startup import HelmBackend
-
-    backend = HelmBackend(api_key="your_key")
-    backend.start()
-
-    for message in backend.read_messages():
-        print(message)
-
-    backend.stop()
 """
 
 import json

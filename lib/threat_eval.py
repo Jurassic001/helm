@@ -2,8 +2,6 @@ import time
 from collections import deque
 from typing import Dict, Optional
 
-from loguru import logger
-
 
 class ThreatDetector:
     def __init__(self, averaging_window=0.5):
@@ -36,8 +34,6 @@ class ThreatDetector:
 
         # Last calculation time
         self.last_calculation_time = time.time()
-
-        logger.success("ThreatDetector Online")
 
     def process_message(self, message: dict) -> Optional[float]:
         """Process incoming Presage messages and add to buffers"""
