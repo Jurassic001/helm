@@ -1,13 +1,9 @@
-import time
+import socket
+import json
 from collections import deque
 from typing import Dict, Optional
-import json
-import statistics
 
-
-class ThreatEvaluation:
-    # Stand alone class that takes in data that'll be passed to it, and outputs a danger evaluation score
-    
+class PresageThreatDetector:
     def __init__(self):
         # Population-based norms (typical resting values)
         self.baselines = {
@@ -58,9 +54,9 @@ class ThreatEvaluation:
         """Extract heart rate and breathing from core metrics"""
         metrics = {}
         
-        # Get heart rate
+        # Get heart rate (removed confidence check since it's 0 in your data)
         pulse_data = data.get("pulse", {}).get("heart_rate", {})
-        if pulse_data.get("stable") and pulse_data.get("confidence", 0) > 0.7:
+        if pulse_data.get("stable"):
             metrics['hr'] = pulse_data.get("value")
         
         # Get breathing rate
@@ -105,15 +101,9 @@ class ThreatEvaluation:
         
         self.current_threat_score = threat_score
         self.individual_scores = normalized
-        
-        return {
-            'timestamp_ms': timestamp_ms,
-            'threat_score': threat_score,
-            'threat_level': self._get_threat_level(threat_score),
-            'individual_scores': normalized,
-            'raw_metrics': metrics
-        }
-    
+
+        return threat_score
+            
     def _normalize_metrics(self, metrics: Dict) -> Dict:
         """Normalize each metric to 0-1 score"""
         scores = {}
@@ -123,7 +113,7 @@ class ThreatEvaluation:
             hr = metrics['hr']
             baseline = self.baselines['hr']
             z_score = (hr - baseline['mean']) / baseline['std']
-            scores['hr'] = max(0, min(1, z_score / 3.0))  # Map ±3 std to 0-1
+            scores['hr'] = max(0, min(1, z_score / 3.0))
         
         # Breathing rate (deviation in either direction is concerning)
         if 'breathing' in metrics:
@@ -137,7 +127,7 @@ class ThreatEvaluation:
             eda = metrics['eda']
             baseline = self.baselines['eda']
             percent_change = (eda - baseline['mean']) / baseline['mean']
-            scores['eda'] = max(0, min(1, percent_change / 2.0))  # 200% increase = 1.0
+            scores['eda'] = max(0, min(1, percent_change / 2.0))
             
             # Unstable EDA = higher threat
             if not metrics.get('eda_stable', True):
@@ -202,42 +192,71 @@ class ThreatEvaluation:
             return total_score / total_weight
         
         return 0.0
-    
-    def _get_threat_level(self, score: float) -> str:
-        """Convert score to threat level"""
+
+
+class ThreatDetectionServer:
+    def __init__(self, host='0.0.0.0', port=8888):
+        self.host = host
+        self.port = port
+        self.detector = PresageThreatDetector()
+        self.buffer = ""
         
-        if score < 0.30:
-            return "LOW"
-        elif score < 0.55:
-            return "MODERATE"
-        elif score < 0.75:
-            return "HIGH"
-        else:
-            return "CRITICAL"
+    def start(self):
+        """Start TCP server to receive Presage data"""
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
+            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            server_socket.bind((self.host, self.port))
+            server_socket.listen(1)
+            
+            print(f"Threat Detection Server listening on {self.host}:{self.port}")
+            
+            while True:
+                conn, addr = server_socket.accept()
+                print(f"Connected by {addr}")
+                
+                with conn:
+                    self._handle_client(conn)
+    
+    def _handle_client(self, conn):
+        """Handle incoming TCP connection"""
+        self.buffer = ""
+        
+        while True:
+            try:
+                # Receive data
+                data = conn.recv(4096)
+                if not data:
+                    print("Client disconnected")
+                    break
+                
+                # Decode and add to buffer
+                self.buffer += data.decode('utf-8')
+                
+                # Process complete lines
+                while '\n' in self.buffer:
+                    line, self.buffer = self.buffer.split('\n', 1)
+                    line = line.strip()
+                    
+                    if line:
+                        result = self.detector.process_packet(line)
+                        
+                        if result:
+                            # Print threat score
+                            print(f"Threat Score: {result:.3f}")
+                            
+                            # Optionally send response back to client
+                            # response = f"{result['threat_score']:.3f}\n"
+                            # conn.sendall(response.encode('utf-8'))
+                            
+            except Exception as e:
+                print(f"Error: {e}")
+                break
 
 
-# Usage with your packet data
+# Run the server
 if __name__ == "__main__":
-    detector = ThreatEvaluation()
-    
-    # Your actual data packets
-    packets = [
-        '{"type":"edge_metrics","timestamp_ms":1769308247751,"data":{"chest_breathing":{"value":4.86284,"stable":true}}}',
-        '{"type":"core_metrics","timestamp_ms":1769308247784,"data":{"frame_timestamp":1769308247673027,"pulse":{"heart_rate":{"value":102.6,"stable":true,"confidence":0},"trace_latest":{"value":0.0314,"stable":true}},"breathing":{"respiratory_rate":{"value":12.6,"stable":true,"confidence":0},"chest_trace_latest":{"value":2.3812,"stable":true}},"blood_pressure":{},"face":{"blinking":{"detected":false,"stable":true},"talking":{"detected":false,"stable":true}}}}',
-        '{"type":"edge_metrics","timestamp_ms":1769308247784,"data":{"chest_breathing":{"value":4.9726,"stable":true}}}',
-        '{"type":"edge_metrics","timestamp_ms":1769308247817,"data":{"chest_breathing":{"value":4.9702,"stable":true}}}'
-    ]
-    
-    # Process each packet
-    for packet in packets:
-        result = detector.process_packet(packet)
-        
-        if result:
-            print(f"\nTimestamp: {result['timestamp_ms']}")
-            print(f"Threat Level: {result['threat_level']}")
-            print(f"Threat Score: {result['threat_score']:.3f}")
-            print(f"Individual Scores: {result['individual_scores']}")
-            print(f"Raw Metrics: {result['raw_metrics']}")
+    server = ThreatDetectionServer(host='0.0.0.0', port=8888)
+    server.start()
 
     
 
