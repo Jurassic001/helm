@@ -16,7 +16,7 @@ A security-focused vitals monitoring application that assesses physiological thr
 * Logitech Brio 4k 60 FPS webcam (support for other models coming soon)
 * [uv by astral-sh](https://github.com/astral-sh/uv)
 
-### Configuring WSL
+### Configuring in WSL
 
 ```bash
 # Essential build tools
@@ -41,6 +41,15 @@ sudo apt install libphysiologyedge-dev=2.0.4
 sudo apt install libsmartspectra-dev=2.0.4
 
 # At this point you may need to update your drivers, depending on the state of your webcam and stuff like that
+```
+
+#### .wslconfig
+
+Create a file called .wslconfig in your Windows user directory ( `C:\Users\<YourUsername>\.wslconfig` ) with the following contents:
+
+```
+[wsl2]
+networkingMode=mirrored
 ```
 
 ### Python environment in Windows

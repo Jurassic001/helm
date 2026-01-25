@@ -28,6 +28,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from enum import Enum
+from pathlib import Path
 from typing import Callable, Iterator
 
 from loguru import logger
@@ -83,6 +84,57 @@ def wait_for_port(host: str, port: int, timeout: float = 10.0) -> bool:
             pass
         time.sleep(0.5)
     return False
+
+
+def verify_wslconfig() -> bool:
+    """
+    Verify that .wslconfig in the user's home directory contains
+    [wsl2] section with networkingMode=mirrored.
+    
+    Returns True if valid, False otherwise.
+    """
+    wslconfig_path = Path.home() / ".wslconfig"
+    
+    if not wslconfig_path.exists():
+        logger.error(
+            f".wslconfig not found at {wslconfig_path}\n"
+            "Required for WSL2 mirrored networking mode.\n"
+            "Please create the file with:\n"
+            "[wsl2]\n"
+            "networkingMode=mirrored"
+        )
+        return False
+    
+    try:
+        content = wslconfig_path.read_text()
+        
+        # Simple check for [wsl2] section and networkingMode=mirrored
+        has_wsl2_section = "[wsl2]" in content
+        has_mirrored_mode = "networkingMode=mirrored" in content or "networkingMode = mirrored" in content
+        
+        if not has_wsl2_section:
+            logger.error(
+                f".wslconfig at {wslconfig_path} missing [wsl2] section.\n"
+                "Please add:\n"
+                "[wsl2]\n"
+                "networkingMode=mirrored"
+            )
+            return False
+        
+        if not has_mirrored_mode:
+            logger.error(
+                f".wslconfig at {wslconfig_path} missing networkingMode=mirrored.\n"
+                "Please add to [wsl2] section:\n"
+                "networkingMode=mirrored"
+            )
+            return False
+        
+        logger.info("✓ WSL config verified: mirrored networking enabled")
+        return True
+        
+    except Exception as e:
+        logger.error(f"Failed to read .wslconfig: {e}")
+        return False
 
 
 class FFmpegStream:
@@ -300,6 +352,11 @@ class HelmVitalsBackend:
         if self._running:
             logger.warning("Helm backend already running")
             return True
+        
+        # Verify WSL config before starting
+        if not verify_wslconfig():
+            logger.error("WSL configuration check failed. Cannot proceed.")
+            return False
         
         if not self.config.api_key:
             # Try environment variable

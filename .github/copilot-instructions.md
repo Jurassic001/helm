@@ -1,74 +1,72 @@
-# Copilot Instructions for Helm
+# Helm - AI Coding Instructions
 
-## Project Overview
+## Architecture Overview
 
-Helm is a **security-focused vitals monitoring application** with a cross-platform architecture:
-- **Python frontend** (Windows) - GUI and orchestration via PySide6
-- **C++ backend** (WSL/Linux) - Real-time processing using SmartSpectra SDK
-- **FFmpeg streaming** bridges Windows camera → WSL via TCP
+Helm is a **dual-environment** security vitals monitoring system:
+- **Windows**: Python orchestrator (`main.py`) + FFmpeg camera streaming + PySide6 GUI (WIP)
+- **WSL (Ubuntu 22.04)**: C++ backend (`src/main.cpp`) using SmartSpectra SDK for physiological processing
 
-## Architecture & Data Flow
+**Data flow**: Camera (Windows) → FFmpeg TCP stream → WSL C++ backend → JSON stdout → Python callbacks → GUI
 
 ```
-Windows                          WSL (Ubuntu 22.04)
-┌─────────────┐    TCP:5000     ┌─────────────────┐
-│ FFmpeg      │ ───MJPEG────→   │ helm_vitals     │
-│ (DirectShow)│                 │ (SmartSpectra)  │
-└─────────────┘                 └────────┬────────┘
-                                         │ JSON stdout
-┌─────────────┐                          │
-│ main.py     │ ←────────────────────────┘
-│ (Python)    │ subprocess + line parsing
-└─────────────┘
+Windows Python          WSL C++
+┌──────────────┐       ┌─────────────────┐
+│ main.py      │       │ helm_vitals     │
+│ HelmBackend  │◄─JSON─┤ (SmartSpectra)  │
+│ FFmpegStream │─TCP──►│                 │
+└──────────────┘       └─────────────────┘
 ```
 
-### Key Components
-- [main.py](../main.py) - Entry point, loads API key from `gui/settings.json`, starts `HelmBackend`
-- [lib/startup.py](../lib/startup.py) - Orchestrates `FFmpegStream` (Windows) + `HelmVitalsBackend` (WSL)
-- [src/main.cpp](../src/main.cpp) - Headless C++ processor, outputs JSON to stdout for Python consumption
-
-## Build & Run Commands
+## Critical Build & Run Commands
 
 ```bash
-# C++ backend (run in WSL)
+# Python (Windows) - uses uv package manager
+uv sync                  # Install dependencies
+uv run main.py           # Run application
+
+# C++ backend (WSL Ubuntu 22.04 only)
 cd src/build && cmake .. && make
-
-# Python app (run in Windows)
-uv run main.py
 ```
 
-## Critical Conventions
+The C++ binary at `src/build/helm_vitals` is invoked by Python via `wsl -d Ubuntu-22.04`.
 
-### JSON IPC Protocol
-The C++ backend communicates via structured JSON lines to stdout:
-```json
-{"type": "status|core_metrics|edge_metrics|error", "timestamp_ms": ..., "data": {...}}
-```
-- Handle message types: `status`, `core_metrics`, `edge_metrics`, `error`, `system`
-- See `handle_message()` in [main.py](../main.py#L42-L57) for parsing pattern
+## Key Code Patterns
 
-### Resolution Constraints
-- WSL USB passthrough limits to **1080p max** (DirectShow limitation)
-- 4K requires FFmpeg streaming from Windows (current architecture)
-- Use `Resolution` enum in [lib/startup.py](../lib/startup.py#L33-L41)
+### Python Layer (`lib/startup.py`)
+- `HelmBackend`: High-level orchestrator combining `FFmpegStream` + `HelmVitalsBackend`
+- `FFmpegStream`: TCP relay server (prevents buffer overflow) - reads FFmpeg stdout, forwards to connected clients
+- `HelmVitalsBackend`: WSL process manager parsing JSON from helm_vitals stdout
+- **Callbacks**: Register with `backend.register_callback(fn)` to receive parsed JSON messages
 
-### Configuration
-- API key stored in `gui/settings.json` (gitignored) - copy from `gui/example-settings.json`
-- Hardcoded settings in `main.py` (camera name, resolution, port)
-- C++ flags defined via `ABSL_FLAG` macros in [src/main.cpp](../src/main.cpp#L42-L66)
+### C++ Layer (`src/main.cpp`)
+- Uses `absl::GetFlag()` for command-line parsing
+- `JsonOutputter`: Thread-safe JSON output class - all stdout goes through `g_outputter`
+- Metric extraction functions: `ExtractPulseJson()`, `ExtractBreathingJson()`, etc.
+- SmartSpectra container callbacks: `SetOnCoreMetricsOutput()`, `SetOnEdgeMetricsOutput()`, `SetOnStatusChange()`
 
-### Cross-Platform Paths
-- C++ binary path in WSL: `/mnt/c/Users/mhabe/Documents/VSCode/helm/src/build/helm_vitals`
-- Windows host IP detection: `get_windows_host_ip()` in [lib/startup.py](../lib/startup.py#L68-L81)
+### JSON Message Types (C++ → Python)
+| Type | Description |
+|------|-------------|
+| `status` | Face positioning/lighting feedback |
+| `core_metrics` | Cloud-processed vitals (pulse, breathing, BP) |
+| `edge_metrics` | Real-time local metrics (breathing traces, EDA) |
+| `system` | Lifecycle events (initialized, shutdown) |
+| `error` | Error messages |
+
+## Configuration
+
+- **API Key**: Store in `gui/settings.json` (copy from `gui/example-settings.json`)
+- **Resolution**: Hardcoded in `main.py` - 1080p default (4K unavailable via DirectShow)
+- **WSL distro**: Hardcoded as `Ubuntu-22.04` in `lib/startup.py` (SDK requirement)
 
 ## Dependencies
 
-**Python (Windows):** `uv` for package management, PySide6, loguru, opencv-python
-**C++ (WSL):** SmartSpectra SDK 2.0.4, OpenCV, abseil-cpp, glog, protobuf
+- **SmartSpectra SDK**: `libsmartspectra-dev=2.0.4` (WSL apt package from Presage PPA)
+- **Python**: Exactly 3.12.12 with loguru, opencv-python, pyside6
+- **Camera**: Logitech Brio 4K (other cameras not yet supported)
 
 ## Development Notes
 
-- GUI in [gui/app.py](../gui/app.py) is empty/in development - PySide6 planned
-- `FFmpegStream` uses relay architecture to prevent buffer overflow (see class docstring)
-- Thread-safe JSON output via `JsonOutputter` class with mutex in C++
-- Graceful shutdown: handle SIGINT, call `backend.stop()` to clean up subprocesses
+- GUI in `gui/app.py` is WIP - currently just a placeholder
+- The TCP relay pattern in `FFmpegStream` prevents FFmpeg buffer overflow when backend processes frames slower than capture rate
+- Always test C++ changes by running the full Python orchestrator, not helm_vitals directly
