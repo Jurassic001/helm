@@ -9,6 +9,30 @@ from PySide6.QtUiTools import QUiLoader
 
 
 class MainWindow:
+    # Thresholds per security level to avoid rebuilding dicts every call
+    THREAT_THRESHOLDS = {
+        "LOW": {
+            "FRAME CLEAR": 0.0,
+            "SAFE": 0.15,
+            "CAUTION": 0.40,
+            "WARNING": 0.65,
+            "DANGER": 0.85,
+        },
+        "MEDIUM": {
+            "FRAME CLEAR": 0.0,
+            "SAFE": 0.10,
+            "CAUTION": 0.30,
+            "WARNING": 0.55,
+            "DANGER": 0.75,
+        },
+        "HIGH": {
+            "FRAME CLEAR": 0.0,
+            "SAFE": 0.05,
+            "CAUTION": 0.20,
+            "WARNING": 0.40,
+            "DANGER": 0.60,
+        },
+    }
     def __init__(self):
         # Variable for composite threat score
         self.composite_threat_score = 0.4 # number 0-1 representing overall threat level
@@ -38,10 +62,10 @@ class MainWindow:
         self.setup_ui_elements()
 
         # --- Access QLabel for camera feed ---
-        self.cameraLabel = self.window.findChild(QLabel, "cameraLabel")
-        if self.cameraLabel is None:
+        self.camera_label = self.window.findChild(QLabel, "camera_label")
+        if self.camera_label is None:
             raise RuntimeError(
-                "cameraLabel not found. Make sure QLabel objectName is 'cameraLabel'"
+                "camera_label not found. Make sure QLabel objectName is 'camera_label'"
             )
 
         # --- Set initial window size ---
@@ -50,6 +74,12 @@ class MainWindow:
         self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
         if not self.cap.isOpened():
             raise RuntimeError("Could not open webcam")
+
+        # Hint capture resolution toward the display area to reduce scaling
+        target_w = self.camera_label.width() or 640
+        target_h = self.camera_label.height() or 480
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, target_w)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, target_h)
 
         # --- Timer to update frames ---
         self.timer = QTimer()
@@ -60,24 +90,43 @@ class MainWindow:
         """Setup UI elements (security level combo, threat level label, etc.)"""
         # Security level combo box styling
         sec_level_combo = self.window.findChild(QComboBox, "sec_level_combo")
+        initial_level_text = None
         if sec_level_combo:
+            self.sec_level_combo = sec_level_combo
             # Set text colors: low=green, medium=yellow, heavy=red
             sec_level_combo.setItemData(0, QColor("green"), Qt.ForegroundRole)
             sec_level_combo.setItemData(1, QColor("orange"), Qt.ForegroundRole)
             sec_level_combo.setItemData(2, QColor("red"), Qt.ForegroundRole)
-            # Connect to update security level
+            # Capture initial selection and connect handler
+            initial_level_text = sec_level_combo.currentText()
             sec_level_combo.currentTextChanged.connect(self.update_security_level)
         
         # Threat level label
         self.threat_level_label = self.window.findChild(QLabel, "threat_level_label")
         if self.threat_level_label:
-            # Calculate initial threat estimate after UI is set up
-            self.calculate_threat_estimate()
+            if initial_level_text:
+                # Sync internal state with UI selection and refresh display
+                self.update_security_level(initial_level_text)
+            else:
+                self.calculate_threat_estimate()
 
         # Help button
         help_button = self.window.findChild(QPushButton, "help_button")
         if help_button:
             help_button.clicked.connect(self.show_help)
+
+        # Quit button
+        quit_button = self.window.findChild(QPushButton, "quit_button")
+        if quit_button:
+            quit_button.setStyleSheet(
+                "QPushButton {"
+                " background-color: #dc2626; color: #ffffff; border: none;"
+                " padding: 8px 16px; border-radius: 6px; font-weight: bold;"
+                " }"
+                " QPushButton:hover { background-color: #b91c1c; }"
+                " QPushButton:pressed { background-color: #991b1b; }"
+            )
+            quit_button.clicked.connect(self.handle_quit)
 
     def update_threat_level(self, threat_estimate):
         """Update the threat level label text and color"""
@@ -103,39 +152,20 @@ class MainWindow:
             self.current_security_level = "MEDIUM"
         elif text == "High":
             self.current_security_level = "HIGH"
+
+        # Match combo text color to selection
+        color_map = {"LOW": "green", "MEDIUM": "orange", "HIGH": "red"}
+        if getattr(self, "sec_level_combo", None):
+            color = color_map.get(self.current_security_level, "#334155")
+            self.sec_level_combo.setStyleSheet(f"color: {color};")
         # Re-calculate threat estimate with new security level
         self.calculate_threat_estimate()
 
     def calculate_threat_estimate(self):
         """Calculate threat estimate based on composite_threat_score and security level"""
-        # Define thresholds based on security level
-        if self.current_security_level == "LOW":
-            # More lenient thresholds
-            thresholds = {
-                "FRAME CLEAR": 0.0,
-                "SAFE": 0.15,
-                "CAUTION": 0.40,
-                "WARNING": 0.65,
-                "DANGER": 0.85
-            }
-        elif self.current_security_level == "MEDIUM":
-            # Moderate thresholds
-            thresholds = {
-                "FRAME CLEAR": 0.0,
-                "SAFE": 0.10,
-                "CAUTION": 0.30,
-                "WARNING": 0.55,
-                "DANGER": 0.75
-            }
-        else:  # HIGH
-            # Strict thresholds
-            thresholds = {
-                "FRAME CLEAR": 0.0,
-                "SAFE": 0.05,
-                "CAUTION": 0.20,
-                "WARNING": 0.40,
-                "DANGER": 0.60
-            }
+        thresholds = self.THREAT_THRESHOLDS.get(
+            self.current_security_level, self.THREAT_THRESHOLDS["MEDIUM"]
+        )
         
         # Determine threat estimate based on score
         if self.composite_threat_score == 0.0:
@@ -160,19 +190,18 @@ class MainWindow:
         msg_box = QMessageBox(self.window)
         msg_box.setWindowTitle("Help - Helm")
         msg_box.setText(
-            "Welcome to Helm! This tool helps keep an eye on your surroundings using a camera.\n\n"
-            "**Quick Guide:**\n"
-            "- **Security Level**: Choose how sensitive the system should be to potential threats (Low, Medium, High).\n"
-            "- **Threat Estimate**: See the current safety status at a glance (color changes to show risk level).\n"
-            "- **Live Feed**: Watch the real-time camera view to see what's happening.\n"
-            "- **Analysis**: Get simple stats about the person on camera, like their vital signs or facial expressions.\n"
-            "- **Summary**: A short description of the person, explaining why the threat level is at its current value(e.g., if they have something that looks like a weapon).\n"
-            "- **Accessibility Tab**: Adjust settings for easier viewing.\n\n"
-            "**Tips:**\n"
-            "- Start with 'Medium' security level and adjust as needed.\n"
-            "- If something seems off, check the Summary for details.\n"
-            "- Use the Help button anytime for reminders!\n\n"
-            "Stay safe! If you have questions, reach out to support."
+            "Welcome to Helm! Keep an eye on your surroundings with the live feed and quick status cues.\n\n"
+            "Quick Guide\n"
+            "- [Security Level] (green/orange/red text): Sets sensitivity (Low, Medium, High). Higher = more cautious.\n"
+            "- [Threat Estimate]: Color-coded label (gray/green/gold/orange/crimson) showing current risk.\n"
+            "- [Live Feed]: Camera view fills the frame; use the red Quit button to exit cleanly.\n"
+            "- [Analysis]: Basic stats (pulse, breathing, expression) to spot changes.\n"
+            "- [Summary]: One-line rationale explaining why the threat level is set (e.g., object detected, agitated behavior).\n"
+            "- [Accessibility] tab: adjust comfort settings.\n\n"
+            "Tips\n"
+            "- Start on Medium; move to High if you need stricter alerts.\n"
+            "- Watch the threat color and Summary for context before reacting.\n"
+            "- If the feed stalls, try switching tabs or restart with Quit then relaunch."
         )
         # Set custom icon from info_icon.png
         icon_pixmap = QPixmap("gui/assets/info_icon.png")
@@ -183,6 +212,13 @@ class MainWindow:
         else:
             msg_box.setIcon(QMessageBox.Icon.Information)  # Fallback to default
         msg_box.exec()
+
+    def handle_quit(self):
+        """Handle quit button click"""
+        # Fast-path quit: let the aboutToQuit hook clean up resources
+        app = QApplication.instance()
+        if app:
+            app.quit()
 
     def update_frame(self):
         ret, frame = self.cap.read()
@@ -196,15 +232,22 @@ class MainWindow:
         qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
 
-        # Scale to fit QLabel
-        self.cameraLabel.setPixmap(
-            pixmap.scaled(
-                self.cameraLabel.width(),
-                self.cameraLabel.height(),
-                Qt.AspectRatioMode.KeepAspectRatio,
-                Qt.TransformationMode.SmoothTransformation
-            )
+        # Scale to fill the QLabel with center-crop for a better fit
+        target_w = self.camera_label.width()
+        target_h = self.camera_label.height()
+        if target_w <= 0 or target_h <= 0:
+            return  # Wait until layout gives the label a real size
+        scaled = pixmap.scaled(
+            target_w,
+            target_h,
+            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+            Qt.TransformationMode.SmoothTransformation,
         )
+        # Center-crop to the label's exact size
+        x_offset = max(0, (scaled.width() - target_w) // 2)
+        y_offset = max(0, (scaled.height() - target_h) // 2)
+        cropped = scaled.copy(x_offset, y_offset, target_w, target_h)
+        self.camera_label.setPixmap(cropped)
 
     def show(self):
         self.window.show()
@@ -217,5 +260,6 @@ class MainWindow:
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     main_window = MainWindow()
+    app.aboutToQuit.connect(main_window.close)
     main_window.show()
     sys.exit(app.exec())

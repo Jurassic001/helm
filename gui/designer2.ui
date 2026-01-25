@@ -110,7 +110,7 @@ QTextBrowser {
     <attribute name="title">
      <string>  Home  </string>
     </attribute>
-    <widget class="QFrame" name="leftFeedFrame">
+    <widget class="QFrame" name="left_feed_frame">
      <property name="geometry">
       <rect>
        <x>20</x>
@@ -130,7 +130,7 @@ QTextBrowser {
       <enum>QFrame::Shape::StyledPanel</enum>
      </property>
     </widget>
-    <widget class="QLabel" name="liveFeedTitle">
+    <widget class="QLabel" name="live_feed_title">
      <property name="geometry">
       <rect>
        <x>30</x>
@@ -153,7 +153,7 @@ QTextBrowser {
       <string>Live Feed</string>
      </property>
     </widget>
-    <widget class="QLabel" name="cameraLabel">
+    <widget class="QLabel" name="camera_label">
      <property name="geometry">
       <rect>
        <x>30</x>
@@ -175,7 +175,7 @@ color: #94a3b8;</string>
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
-    <widget class="QFrame" name="analysisFrame">
+    <widget class="QFrame" name="analysis_frame">
      <property name="geometry">
       <rect>
        <x>340</x>
@@ -312,7 +312,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
 &lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic; color:#64748b;&quot;&gt;No individual detected...&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
-    <widget class="QFrame" name="rightFeedFrame">
+    <widget class="QFrame" name="right_feed_frame">
      <property name="geometry">
       <rect>
        <x>560</x>
@@ -332,7 +332,7 @@ li.checked::marker { content: &quot;\2612&quot;; }
       <enum>QFrame::Shape::StyledPanel</enum>
      </property>
     </widget>
-    <widget class="QLabel" name="augmentedFeedTitle">
+    <widget class="QLabel" name="augmented_feed_title">
      <property name="geometry">
       <rect>
        <x>570</x>
@@ -377,7 +377,7 @@ color: #94a3b8;</string>
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
-    <widget class="QFrame" name="controlsFrame">
+    <widget class="QFrame" name="controls_frame">
      <property name="geometry">
       <rect>
        <x>20</x>
@@ -497,7 +497,7 @@ color: #94a3b8;</string>
      <property name="geometry">
       <rect>
        <x>710</x>
-       <y>400</y>
+         <y>400</y>
        <width>140</width>
        <height>40</height>
       </rect>
@@ -506,6 +506,19 @@ color: #94a3b8;</string>
       <string>Help Guide</string>
      </property>
     </widget>
+     <widget class="QPushButton" name="quit_button">
+      <property name="geometry">
+        <rect>
+         <x>710</x>
+         <y>450</y>
+         <width>140</width>
+         <height>40</height>
+        </rect>
+      </property>
+      <property name="text">
+        <string>Quit</string>
+      </property>
+     </widget>
    </widget>
    <widget class="QWidget" name="accessibility">
     <property name="styleSheet">
