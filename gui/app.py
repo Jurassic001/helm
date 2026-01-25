@@ -1,18 +1,38 @@
 import json
 import os
-import threading
 from pathlib import Path
 
 import cv2
 import mediapipe as mp
 from loguru import logger
-from PySide6.QtCore import QFile, Qt, QTimer
+from PySide6.QtCore import QFile, QObject, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPalette, QPixmap
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QTextBrowser
 
 from lib.threat_eval import ThreatDetector
 from lib.threat_summery import ThreatSummaryGenerator
+
+
+class SummaryWorker(QThread):
+    """QThread worker for generating AI threat summaries without blocking the UI."""
+
+    finished = Signal(str)  # Emits the summary text on success
+    error = Signal(str)  # Emits error message on failure
+
+    def __init__(self, generator: ThreatSummaryGenerator, metrics: dict):
+        super().__init__()
+        self.generator = generator
+        self.metrics = metrics
+
+    def run(self):
+        """Generate summary in background thread."""
+        try:
+            summary = self.generator.generate_summary(self.metrics)
+            self.finished.emit(summary)
+        except Exception as e:
+            logger.error(f"Summary generation failed: {e}")
+            self.error.emit(str(e))
 
 
 class MainWindow:
@@ -60,10 +80,13 @@ class MainWindow:
         self.current_theme = "System"  # Possible values: "System", "Light", "Dark"
 
         # --- Load Anthropic API key for summary generation ---
+        self.summary_generator = None
+        self._summary_thread = None
         anthropic_key = self._load_anthropic_api_key()
         if anthropic_key:
             try:
                 self.summary_generator = ThreatSummaryGenerator(anthropic_key)
+                logger.info("Threat summary generator initialized")
             except Exception as e:
                 logger.warning(f"Failed to initialize summary generator: {e}")
         else:
@@ -700,7 +723,13 @@ class MainWindow:
             return ""
 
     def on_generate_summary(self):
+        """Handle generate summary button click - runs API call in background QThread."""
         if not self.summary_generator:
+            return
+
+        # Prevent multiple concurrent requests
+        if self._summary_thread and self._summary_thread.isRunning():
+            logger.warning("Summary generation already in progress")
             return
 
         # Update UI to show loading state
@@ -709,15 +738,11 @@ class MainWindow:
         if hasattr(self, "generate_button"):
             self.generate_button.setEnabled(False)
 
-        # Capture metrics snapshot for the thread
-        metrics_snapshot = self.vitals.copy()
-
-        try:
-            summary = self.summary_generator.generate_summary(metrics_snapshot)
-            self._on_summary_complete(summary)
-        except Exception as e:
-            logger.error(f"Summary generation failed: {e}")
-            self._on_summary_error(f"{e}")
+        # Create and configure worker thread
+        self._summary_thread = SummaryWorker(self.summary_generator, self.vitals.copy())
+        self._summary_thread.finished.connect(self._on_summary_complete)
+        self._summary_thread.error.connect(self._on_summary_error)
+        self._summary_thread.start()
 
     def _on_summary_complete(self, summary: str):
         """Handle successful summary generation (called on main thread)."""
