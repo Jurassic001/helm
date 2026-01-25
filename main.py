@@ -49,7 +49,7 @@ def handle_message(message: dict):
         data = message.get("data", {})
         logger.info(f"Status: {data.get('description', 'Unknown')}")
     
-    elif msg_type == "core_metrics" or msg_type == "edge_metrics":
+    elif msg_type in ("core_metrics", "edge_metrics", "edge_metrics_raw"):
         data = message.get("data", {})
         logger.debug(f"Physiology data: {data}")
         # TODO: React to data
