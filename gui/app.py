@@ -1,6 +1,7 @@
 import os
 
 import cv2
+import mediapipe as mp
 from loguru import logger
 from PySide6.QtCore import QFile, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QPixmap
@@ -45,9 +46,11 @@ class MainWindow:
         self.current_security_level = "LOW"  # Possible values: "LOW", "MEDIUM", "HIGH"
         # Variable for vitals dictionary
         self.vitals = {}
+        self.threat_score = None
 
         # Variable to track threat estimate
         self.threat_estimate = "FRAME CLEAR"  # Possible values: "FRAME CLEAR", "SAFE", "CAUTION", "WARNING", "DANGER"
+        self.wireframe_color = (255, 255, 255)
 
         # --- Load UI ---
         ui_path = os.path.join(os.path.dirname(__file__), "designer2.ui")
@@ -70,21 +73,18 @@ class MainWindow:
 
         # --- Access QLabel for camera feed ---
         self.camera_label = self.window.findChild(QLabel, "camera_label")
-        if self.camera_label is None:
-            raise RuntimeError("camera_label not found. Make sure QLabel objectName is 'camera_label'")
+        self.camera_label2 = self.window.findChild(QLabel, "camera_feed_2")
+        if self.camera_label is None or self.camera_label2 is None:
+            raise RuntimeError(
+                "camera_label(s) not found. Make sure QLabel objectName is 'camera_label' and 'camera_label2'"
+            )
 
         # --- Set initial window size ---
 
         # --- Open webcam ---
-        self.cap = cv2.VideoCapture(0, cv2.CAP_DSHOW)
+        self.cap = cv2.VideoCapture(1, cv2.CAP_DSHOW)
         if not self.cap.isOpened():
             raise RuntimeError("Could not open webcam")
-
-        # Hint capture resolution toward the display area to reduce scaling
-        target_w = self.camera_label.width() or 640
-        target_h = self.camera_label.height() or 480
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, target_w)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, target_h)
 
         # --- Timer to update frames ---
         self.timer = QTimer()
@@ -143,14 +143,19 @@ class MainWindow:
             self.threat_level_label.setText(threat_estimate)
             if threat_estimate == "FRAME CLEAR":
                 self.threat_level_label.setStyleSheet("color: #666666; font-weight: bold;")
+                self.wireframe_color = (255, 255, 255)
             elif threat_estimate == "SAFE":
                 self.threat_level_label.setStyleSheet("color: #008000; font-weight: bold;")
+                self.wireframe_color = (0, 255, 0)
             elif threat_estimate == "CAUTION":
                 self.threat_level_label.setStyleSheet("color: #DAA520; font-weight: bold;")
+                self.wireframe_color = (0, 255, 255)
             elif threat_estimate == "WARNING":
                 self.threat_level_label.setStyleSheet("color: #FF8C00; font-weight: bold;")
+                self.wireframe_color = (0, 165, 255)
             elif threat_estimate == "DANGER":
                 self.threat_level_label.setStyleSheet("color: #DC143C; font-weight: bold;")
+                self.wireframe_color = (0, 0, 255)
 
     def update_security_level(self, text):
         """Update current_security_level based on combo selection"""
@@ -264,11 +269,11 @@ class MainWindow:
         if not ret:
             return
 
-        frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        h, w, ch = frame.shape
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        h, w, ch = frame_rgb.shape
         bytes_per_line = ch * w
 
-        qt_image = QImage(frame.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
+        qt_image = QImage(frame_rgb.data, w, h, bytes_per_line, QImage.Format.Format_RGB888)
         pixmap = QPixmap.fromImage(qt_image)
 
         # Scale to fill the QLabel with center-crop for a better fit
@@ -288,10 +293,103 @@ class MainWindow:
         cropped = scaled.copy(x_offset, y_offset, target_w, target_h)
         self.camera_label.setPixmap(cropped)
 
+        # Create wireframe overlay for camera_label2
+        wireframe = self._create_wireframe_overlay(frame)
+        wireframe_rgb = cv2.cvtColor(wireframe, cv2.COLOR_BGR2RGB)
+        wf_h, wf_w, wf_ch = wireframe_rgb.shape
+        wf_bytes_per_line = wf_ch * wf_w
+        wf_image = QImage(wireframe_rgb.data, wf_w, wf_h, wf_bytes_per_line, QImage.Format.Format_RGB888)
+        wf_pixmap = QPixmap.fromImage(wf_image)
+
+        target_w2 = self.camera_label2.width()
+        target_h2 = self.camera_label2.height()
+        if target_w2 > 0 and target_h2 > 0:
+            scaled_wf = wf_pixmap.scaled(
+                target_w2,
+                target_h2,
+                Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                Qt.TransformationMode.SmoothTransformation,
+            )
+            x_off2 = max(0, (scaled_wf.width() - target_w2) // 2)
+            y_off2 = max(0, (scaled_wf.height() - target_h2) // 2)
+            cropped_wf = scaled_wf.copy(x_off2, y_off2, target_w2, target_h2)
+            self.camera_label2.setPixmap(cropped_wf)
+
+    def _create_wireframe_overlay(self, frame):
+        """Create a wireframe overlay with face mesh, hand landmarks, and body pose"""
+
+        # Initialize mediapipe Holistic (lazy init) - combines face, hands, and pose
+        if not hasattr(self, "_mp_holistic"):
+            self._mp_holistic = mp.solutions.holistic.Holistic(
+                static_image_mode=False,
+                model_complexity=0,  # 0=Lite for speed, 1=Full, 2=Heavy
+                smooth_landmarks=True,
+                enable_segmentation=False,
+                refine_face_landmarks=True,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5,
+            )
+            self._mp_drawing = mp.solutions.drawing_utils
+            self._mp_drawing_styles = mp.solutions.drawing_styles
+            self._mp_face_mesh_module = mp.solutions.face_mesh
+            self._mp_hands_module = mp.solutions.hands
+            self._mp_pose_module = mp.solutions.pose
+
+        # Create dark background for wireframe
+        wireframe = frame.copy()
+        wireframe = cv2.addWeighted(wireframe, 0.2, wireframe * 0, 0.8, 0)
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+
+        # Process with Holistic (single pass for face, hands, and pose)
+        results = self._mp_holistic.process(frame_rgb)
+
+        # Draw face mesh
+        if results.face_landmarks:
+            self._mp_drawing.draw_landmarks(
+                image=wireframe,
+                landmark_list=results.face_landmarks,
+                connections=self._mp_face_mesh_module.FACEMESH_TESSELATION,
+                landmark_drawing_spec=None,
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=1, circle_radius=1),
+            )
+            # Draw contours
+            self._mp_drawing.draw_landmarks(
+                image=wireframe,
+                landmark_list=results.face_landmarks,
+                connections=self._mp_face_mesh_module.FACEMESH_CONTOURS,
+                landmark_drawing_spec=None,
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=1, circle_radius=1),
+            )
+
+        # Draw left hand landmarks
+        if results.left_hand_landmarks:
+            self._mp_drawing.draw_landmarks(
+                image=wireframe,
+                landmark_list=results.left_hand_landmarks,
+                connections=self._mp_hands_module.HAND_CONNECTIONS,
+                landmark_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
+            )
+
+        # Draw right hand landmarks
+        if results.right_hand_landmarks:
+            self._mp_drawing.draw_landmarks(
+                image=wireframe,
+                landmark_list=results.right_hand_landmarks,
+                connections=self._mp_hands_module.HAND_CONNECTIONS,
+                landmark_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
+            )
+
+        return wireframe
+
     def gui_message_handler(self, message: dict):
         """Evaluate threat score from incoming message"""
-        data = message.get("data", {})
-        self.threat_score = self.detector.process_message(data)
+        msg_type = message.get("type", "unknown")
+
+        if msg_type in ("core_metrics", "edge_metrics"):
+            self.threat_score = self.detector.process_message(message)
 
     def show(self):
         self.window.show()
@@ -299,4 +397,4 @@ class MainWindow:
     def close(self):
         self.timer.stop()
         self.cap.release()
-        logger.debug("MainWindow closed and resources released")
+        logger.success("MainWindow closed and resources released")

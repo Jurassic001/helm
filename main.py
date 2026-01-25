@@ -10,7 +10,6 @@ Main entry point that orchestrates:
 import json
 import signal
 import sys
-import threading
 from pathlib import Path
 
 from loguru import logger

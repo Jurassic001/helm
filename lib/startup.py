@@ -6,16 +6,6 @@ Orchestrates the startup sequence:
 2. Start helm_vitals C++ backend in WSL
 3. Provide JSON output stream to the GUI
 
-Usage:
-    from lib.startup import HelmBackend
-
-    backend = HelmBackend(api_key="your_key")
-    backend.start()
-
-    for message in backend.read_messages():
-        print(message)
-
-    backend.stop()
 """
 
 import json
@@ -432,6 +422,7 @@ class HelmVitalsBackend:
             self.config.video_url,
             "--verbosity",
             str(self.config.verbosity),
+            "--enable_micromotion"
         ]
 
         if self.config.enable_edge_metrics:
@@ -475,7 +466,7 @@ class HelmVitalsBackend:
                 self._running = False
                 return False
 
-            logger.info("helm_vitals backend started successfully")
+            logger.success("helm_vitals backend started successfully")
             return True
 
         except Exception as e:
