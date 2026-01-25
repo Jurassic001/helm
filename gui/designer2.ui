@@ -21,16 +21,16 @@
   </property>
   <property name="styleSheet">
    <string notr="true">QDialog {
-    background-color: #1a1a2e;
+    background-color: #f8fafc;
 }
 QTabWidget::pane {
     border: none;
-    background-color: #16213e;
+    background-color: #ffffff;
     border-radius: 8px;
 }
 QTabBar::tab {
-    background-color: #1a1a2e;
-    color: #a0a0a0;
+    background-color: #e2e8f0;
+    color: #64748b;
     padding: 10px 24px;
     margin-right: 2px;
     border-top-left-radius: 6px;
@@ -38,18 +38,18 @@ QTabBar::tab {
     font-weight: bold;
 }
 QTabBar::tab:selected {
-    background-color: #16213e;
-    color: #ffffff;
+    background-color: #ffffff;
+    color: #1e40af;
 }
 QTabBar::tab:hover:!selected {
-    background-color: #0f3460;
-    color: #ffffff;
+    background-color: #cbd5e1;
+    color: #1e40af;
 }
 QLabel {
-    color: #e0e0e0;
+    color: #334155;
 }
 QPushButton {
-    background-color: #0f3460;
+    background-color: #3b82f6;
     color: #ffffff;
     border: none;
     padding: 8px 16px;
@@ -57,34 +57,34 @@ QPushButton {
     font-weight: bold;
 }
 QPushButton:hover {
-    background-color: #1a5490;
+    background-color: #2563eb;
 }
 QPushButton:pressed {
-    background-color: #0a2540;
+    background-color: #1d4ed8;
 }
 QComboBox {
-    background-color: #0f3460;
-    color: #ffffff;
-    border: 1px solid #3a3a5a;
+    background-color: #ffffff;
+    color: #334155;
+    border: 1px solid #cbd5e1;
     padding: 6px 12px;
     border-radius: 6px;
 }
 QComboBox:hover {
-    border-color: #4a90d9;
+    border-color: #3b82f6;
 }
 QComboBox::drop-down {
     border: none;
     padding-right: 8px;
 }
 QComboBox QAbstractItemView {
-    background-color: #16213e;
-    color: #ffffff;
-    selection-background-color: #0f3460;
+    background-color: #ffffff;
+    color: #334155;
+    selection-background-color: #dbeafe;
 }
 QTextBrowser {
-    background-color: #0f3460;
-    color: #e0e0e0;
-    border: 1px solid #3a3a5a;
+    background-color: #f1f5f9;
+    color: #334155;
+    border: 1px solid #e2e8f0;
     border-radius: 6px;
     padding: 8px;
 }</string>
@@ -104,14 +104,12 @@ QTextBrowser {
    <widget class="QWidget" name="home">
     <property name="styleSheet">
      <string notr="true">QWidget#home {
-    background-color: #16213e;
+    background-color: #ffffff;
 }</string>
     </property>
     <attribute name="title">
      <string>  Home  </string>
     </attribute>
-    
-    <!-- Left Camera Feed Section -->
     <widget class="QFrame" name="leftFeedFrame">
      <property name="geometry">
       <rect>
@@ -123,9 +121,9 @@ QTextBrowser {
      </property>
      <property name="styleSheet">
       <string notr="true">QFrame#leftFeedFrame {
-    background-color: #1a1a2e;
+    background-color: #f8fafc;
     border-radius: 10px;
-    border: 1px solid #3a3a5a;
+    border: 1px solid #e2e8f0;
 }</string>
      </property>
      <property name="frameShape">
@@ -144,12 +142,12 @@ QTextBrowser {
      <property name="font">
       <font>
        <family>Segoe UI</family>
-       <pointsize>12</pointsize>
+       <pointsize>11</pointsize>
        <bold>true</bold>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: #4a90d9; background: transparent;</string>
+      <string notr="true">color: #475569; background: transparent;</string>
      </property>
      <property name="text">
       <string>Live Feed</string>
@@ -165,10 +163,10 @@ QTextBrowser {
       </rect>
      </property>
      <property name="styleSheet">
-      <string notr="true">background-color: #0a0a15;
-border: 2px solid #3a3a5a;
+      <string notr="true">background-color: #1e293b;
+border: 2px solid #cbd5e1;
 border-radius: 8px;
-color: #606080;</string>
+color: #94a3b8;</string>
      </property>
      <property name="text">
       <string>Camera Feed Loading...</string>
@@ -177,21 +175,6 @@ color: #606080;</string>
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
-    <widget class="QPushButton" name="help_button">
-     <property name="geometry">
-      <rect>
-       <x>30</x>
-       <y>280</y>
-       <width>130</width>
-       <height>36</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Help Guide</string>
-     </property>
-    </widget>
-
-    <!-- Center Analysis Section -->
     <widget class="QFrame" name="analysisFrame">
      <property name="geometry">
       <rect>
@@ -203,9 +186,9 @@ color: #606080;</string>
      </property>
      <property name="styleSheet">
       <string notr="true">QFrame#analysisFrame {
-    background-color: #1a1a2e;
+    background-color: #f8fafc;
     border-radius: 10px;
-    border: 1px solid #3a3a5a;
+    border: 1px solid #e2e8f0;
 }</string>
      </property>
      <property name="frameShape">
@@ -224,12 +207,12 @@ color: #606080;</string>
      <property name="font">
       <font>
        <family>Segoe UI</family>
-       <pointsize>12</pointsize>
+       <pointsize>11</pointsize>
        <bold>true</bold>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: #4a90d9; background: transparent;</string>
+      <string notr="true">color: #475569; background: transparent;</string>
      </property>
      <property name="text">
       <string>Analysis</string>
@@ -245,46 +228,25 @@ color: #606080;</string>
       </rect>
      </property>
      <property name="html">
-      <string>&lt;html&gt;&lt;body style="font-family:'Segoe UI'; font-size:9pt; color:#e0e0e0;"&gt;
-&lt;p&gt;Pulse: --&lt;/p&gt;
-&lt;p&gt;Breathing: --&lt;/p&gt;
-&lt;p&gt;Expression: --&lt;/p&gt;
-&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="threat_estimate_label">
-     <property name="geometry">
-      <rect>
-       <x>350</x>
-       <y>145</y>
-       <width>180</width>
-       <height>30</height>
-      </rect>
-     </property>
-     <property name="font">
-      <font>
-       <family>Segoe UI</family>
-       <pointsize>10</pointsize>
-       <bold>true</bold>
-      </font>
-     </property>
-     <property name="styleSheet">
-      <string notr="true">color: #a0a0a0; background: transparent;</string>
-     </property>
-     <property name="text">
-      <string>THREAT ESTIMATE</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignmentFlag::AlignCenter</set>
+      <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+hr { height: 1px; border-width: 0; }
+li.unchecked::marker { content: &quot;\2610&quot;; }
+li.checked::marker { content: &quot;\2612&quot;; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; color:#334155;&quot;&gt;Pulse: --&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; color:#334155;&quot;&gt;Breathing: --&lt;/span&gt;&lt;/p&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; color:#334155;&quot;&gt;Expression: --&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
     <widget class="QLabel" name="threat_level_label">
      <property name="geometry">
       <rect>
-       <x>370</x>
-       <y>180</y>
-       <width>140</width>
-       <height>36</height>
+       <x>360</x>
+       <y>160</y>
+       <width>160</width>
+       <height>40</height>
       </rect>
      </property>
      <property name="font">
@@ -324,7 +286,7 @@ padding: 4px;</string>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: #a0a0a0; background: transparent;</string>
+      <string notr="true">color: #64748b; background: transparent;</string>
      </property>
      <property name="text">
       <string>Summary</string>
@@ -340,13 +302,16 @@ padding: 4px;</string>
       </rect>
      </property>
      <property name="html">
-      <string>&lt;html&gt;&lt;body style="font-family:'Segoe UI'; font-size:9pt; color:#808090;"&gt;
-&lt;p style="font-style:italic;"&gt;No individual detected...&lt;/p&gt;
-&lt;/body&gt;&lt;/html&gt;</string>
+      <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
+&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
+p, li { white-space: pre-wrap; }
+hr { height: 1px; border-width: 0; }
+li.unchecked::marker { content: &quot;\2610&quot;; }
+li.checked::marker { content: &quot;\2612&quot;; }
+&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
+&lt;p style=&quot; margin-top:12px; margin-bottom:12px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;&lt;span style=&quot; font-style:italic; color:#64748b;&quot;&gt;No individual detected...&lt;/span&gt;&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
      </property>
     </widget>
-
-    <!-- Right Augmented Feed Section -->
     <widget class="QFrame" name="rightFeedFrame">
      <property name="geometry">
       <rect>
@@ -358,9 +323,9 @@ padding: 4px;</string>
      </property>
      <property name="styleSheet">
       <string notr="true">QFrame#rightFeedFrame {
-    background-color: #1a1a2e;
+    background-color: #f8fafc;
     border-radius: 10px;
-    border: 1px solid #3a3a5a;
+    border: 1px solid #e2e8f0;
 }</string>
      </property>
      <property name="frameShape">
@@ -379,12 +344,12 @@ padding: 4px;</string>
      <property name="font">
       <font>
        <family>Segoe UI</family>
-       <pointsize>12</pointsize>
+       <pointsize>11</pointsize>
        <bold>true</bold>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: #4a90d9; background: transparent;</string>
+      <string notr="true">color: #475569; background: transparent;</string>
      </property>
      <property name="text">
       <string>Augmented Feed</string>
@@ -400,10 +365,10 @@ padding: 4px;</string>
       </rect>
      </property>
      <property name="styleSheet">
-      <string notr="true">background-color: #0a0a15;
-border: 2px solid #3a3a5a;
+      <string notr="true">background-color: #1e293b;
+border: 2px solid #cbd5e1;
 border-radius: 8px;
-color: #606080;</string>
+color: #94a3b8;</string>
      </property>
      <property name="text">
       <string>Augmented View</string>
@@ -412,8 +377,6 @@ color: #606080;</string>
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
-
-    <!-- Bottom Controls Section -->
     <widget class="QFrame" name="controlsFrame">
      <property name="geometry">
       <rect>
@@ -425,9 +388,9 @@ color: #606080;</string>
      </property>
      <property name="styleSheet">
       <string notr="true">QFrame#controlsFrame {
-    background-color: #1a1a2e;
+    background-color: #f8fafc;
     border-radius: 10px;
-    border: 1px solid #3a3a5a;
+    border: 1px solid #e2e8f0;
 }</string>
      </property>
      <property name="frameShape">
@@ -446,12 +409,12 @@ color: #606080;</string>
      <property name="font">
       <font>
        <family>Segoe UI</family>
-       <pointsize>12</pointsize>
+       <pointsize>11</pointsize>
        <bold>true</bold>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: #4a90d9; background: transparent;</string>
+      <string notr="true">color: #475569; background: transparent;</string>
      </property>
      <property name="text">
       <string>Controls</string>
@@ -474,7 +437,7 @@ color: #606080;</string>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: #e0e0e0; background: transparent;</string>
+      <string notr="true">color: #334155; background: transparent;</string>
      </property>
      <property name="text">
       <string>Security Level:</string>
@@ -530,7 +493,7 @@ color: #606080;</string>
       <string>System Active - Monitoring</string>
      </property>
     </widget>
-    <widget class="QPushButton" name="alert_button">
+    <widget class="QPushButton" name="help_button">
      <property name="geometry">
       <rect>
        <x>710</x>
@@ -539,18 +502,15 @@ color: #606080;</string>
        <height>40</height>
       </rect>
      </property>
-     <property name="styleSheet">
-      <string notr="true">background-color: #dc2626;</string>
-     </property>
      <property name="text">
-      <string>Alert</string>
+      <string>Help Guide</string>
      </property>
     </widget>
    </widget>
    <widget class="QWidget" name="accessibility">
     <property name="styleSheet">
      <string notr="true">QWidget#accessibility {
-    background-color: #16213e;
+    background-color: #ffffff;
 }</string>
     </property>
     <attribute name="title">
@@ -572,7 +532,7 @@ color: #606080;</string>
       </font>
      </property>
      <property name="styleSheet">
-      <string notr="true">color: #606080;</string>
+      <string notr="true">color: #64748b;</string>
      </property>
      <property name="text">
       <string>Accessibility Options</string>
