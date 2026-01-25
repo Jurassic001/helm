@@ -1,10 +1,9 @@
-import socket
 import json
 import time
 from collections import deque
 from typing import Dict, Optional
 
-class PresageThreatDetector:
+class ThreatDetector:
     def __init__(self, averaging_window=0.5):
         # Population-based norms (typical resting values)
         self.baselines = {
@@ -277,75 +276,15 @@ class PresageThreatDetector:
         }
 
 
-class ThreatDetectionServer:
-    def __init__(self, host='0.0.0.0', port=8888, averaging_window=0.5):
-        self.host = host
-        self.port = port
-        self.detector = PresageThreatDetector(averaging_window=averaging_window)
-        self.buffer = ""
-        
-    def start(self):
-        """Start TCP server to receive Presage data"""
-        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
-            server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            server_socket.bind((self.host, self.port))
-            server_socket.listen(1)
-            
-            print(f"Threat Detection Server listening on {self.host}:{self.port}")
-            print(f"Averaging window: {self.detector.averaging_window}s")
-            
-            while True:
-                conn, addr = server_socket.accept()
-                print(f"Connected by {addr}")
-                
-                with conn:
-                    self._handle_client(conn)
+# Simple usage example
+if __name__ == "__main__":
+    detector = ThreatDetector(averaging_window=0.5)
     
-    def _handle_client(self, conn):
-        """Handle incoming TCP connection"""
-        self.buffer = ""
-        
-        while True:
-            try:
-                data = conn.recv(4096)
-                if not data:
-                    print("Client disconnected")
-                    break
-                
-                self.buffer += data.decode('utf-8')
-                
-                while '\n' in self.buffer:
-                    line, self.buffer = self.buffer.split('\n', 1)
-                    line = line.strip()
-                    
-                    if line:
-                        # Process packet (returns score only every 0.5s)
-                        threat_score = self.detector.process_packet(line)
-                        
-                        if threat_score is not None:
-                            # Get individual metrics
-                            hr = self.detector.get_heart_rate()
-                            breathing = self.detector.get_breathing_rate()
-                            
-                            print(f"Threat: {threat_score:.3f} | HR: {hr:.1f if hr else 'N/A'} | BR: {breathing:.1f if breathing else 'N/A'}")
-                            
-                            # Send threat score back
-                            response = f"{threat_score:.3f}\n"
-                            conn.sendall(response.encode('utf-8'))
-                            
-            except Exception as e:
-                print(f"Error: {e}")
-                break
-
-
-# Run the server
-#if __name__ == "__main__":
-#    server = ThreatDetectionServer(host='0.0.0.0', port=8888)
-#    server.start()
-
+    # Example: process a JSON packet
+    packet = '{"type":"core_metrics","timestamp_ms":1769308247784,"data":{"pulse":{"heart_rate":{"value":85,"stable":true,"confidence":0.95}},"breathing":{"respiratory_rate":{"value":18,"stable":true}}}}'
     
-
+    threat_score = detector.process_packet(packet)
     
-    
-
-    
+    if threat_score is not None:
+        print(f"Threat Score: {threat_score:.3f}")
+        print(f"Heart Rate: {detector.get_heart_rate():.1f}")
