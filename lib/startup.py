@@ -165,9 +165,24 @@ class FFmpegStream:
         return f"tcp://localhost:{self.config.port}"
     
     def _relay_data(self):
-        """Relay data from FFmpeg stdout to the connected TCP client."""
+        """
+        Relay data from FFmpeg stdout to the connected TCP client.
+        
+        Uses JPEG frame boundary detection (SOI/EOI markers) and pacing
+        to ensure frames arrive at consistent intervals, preventing the
+        SmartSpectra SDK's one_euro_filter from receiving duplicate timestamps.
+        """
         if not self._ffmpeg_process or not self._ffmpeg_process.stdout:
             return
+        
+        # JPEG markers for frame boundary detection
+        JPEG_SOI = b"\xff\xd8"  # Start of Image
+        JPEG_EOI = b"\xff\xd9"  # End of Image
+        
+        # Target frame interval based on camera FPS
+        target_interval = 1.0 / self.config.resolution.fps
+        buffer = b""
+        last_frame_time = time.monotonic()
         
         try:
             while self._running:
@@ -176,14 +191,47 @@ class FFmpegStream:
                 if not data:
                     break
                 
-                # If client is connected, send the data
-                if self._client_socket:
-                    try:
-                        self._client_socket.sendall(data)
-                    except (BrokenPipeError, ConnectionResetError, OSError):
-                        logger.warning("Client disconnected")
-                        self._client_socket = None
-                # If no client, data is discarded (prevents buffer buildup)
+                buffer += data
+                
+                # Extract and send complete JPEG frames with pacing
+                while True:
+                    # Find start of JPEG frame
+                    soi_pos = buffer.find(JPEG_SOI)
+                    if soi_pos == -1:
+                        # No frame start found, keep minimal buffer
+                        buffer = b""
+                        break
+                    
+                    # Discard any data before the SOI marker
+                    if soi_pos > 0:
+                        buffer = buffer[soi_pos:]
+                    
+                    # Find end of JPEG frame
+                    eoi_pos = buffer.find(JPEG_EOI, 2)  # Start search after SOI
+                    if eoi_pos == -1:
+                        # Incomplete frame, wait for more data
+                        break
+                    
+                    # Extract complete frame (including EOI marker)
+                    frame = buffer[:eoi_pos + 2]
+                    buffer = buffer[eoi_pos + 2:]
+                    
+                    # If client is connected, send with pacing
+                    if self._client_socket:
+                        # Pace frame delivery to prevent timestamp collisions
+                        now = time.monotonic()
+                        elapsed = now - last_frame_time
+                        if elapsed < target_interval:
+                            time.sleep(target_interval - elapsed)
+                        
+                        try:
+                            self._client_socket.sendall(frame)
+                            last_frame_time = time.monotonic()
+                        except (BrokenPipeError, ConnectionResetError, OSError):
+                            logger.warning("Client disconnected")
+                            self._client_socket = None
+                    # If no client, frame is discarded (prevents buffer buildup)
+                    
         except Exception as e:
             if self._running:
                 logger.error(f"Relay error: {e}")
@@ -229,8 +277,10 @@ class FFmpegStream:
             return False
         
         # Step 2: Start FFmpeg outputting to stdout (pipe)
+        # Note: -use_wallclock_as_timestamps ensures monotonic timestamps for SDK
         cmd = [
             "ffmpeg",
+            "-use_wallclock_as_timestamps", "1",  # Use real-time clock for timestamps
             "-f", "dshow",
             "-video_size", f"{res.width}x{res.height}",
             "-framerate", str(res.fps),
@@ -382,7 +432,9 @@ class HelmVitalsBackend:
         backend_cmd_parts.extend(self.config.extra_args)
         
         # Join into a bash command string
-        bash_cmd = " ".join(backend_cmd_parts)
+        # Prepend GLOG_minloglevel=2 to suppress SDK internal warnings (one_euro_filter timestamp warnings)
+        # glog levels: 0=INFO, 1=WARNING, 2=ERROR, 3=FATAL
+        bash_cmd = "GLOG_minloglevel=2 " + " ".join(backend_cmd_parts)
         
         # Wrap in WSL
         cmd = [
@@ -434,6 +486,11 @@ class HelmVitalsBackend:
                 for line in self._process.stderr:
                     line = line.strip()
                     if line:
+                        # Filter out one_euro_filter timestamp warnings from MediaPipe
+                        # These are triggered ~468 times per frame (once per facial landmark)
+                        # and cannot be suppressed at the SDK level
+                        if "one_euro_filter.cc" in line and "timestamp is equal or less" in line:
+                            continue
                         logger.warning(f"helm_vitals stderr: {line}")
         
         stderr_thread = threading.Thread(target=read_stderr, daemon=True)

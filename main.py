@@ -51,13 +51,17 @@ def handle_message(message: dict):
     
     elif msg_type == "core_metrics":
         data = message.get("data", {})
-        pulse = data.get("pulse", {}).get("heart_rate", {})
-        if pulse.get("stable"):
-            logger.info(f"Heart Rate: {pulse.get('value', 'N/A')} bpm")
+        pulse = data.get("pulse", {})
+        hr = pulse.get("heart_rate", {})
+        breathing = data.get("breathing", {})
+        br = breathing.get("breathing_rate", {})
+        logger.info(f"Core Metrics - HR: {hr.get('value', 'N/A')} bpm (stable={hr.get('stable')}), "
+                    f"BR: {br.get('value', 'N/A')} bpm (stable={br.get('stable')})")
     
     elif msg_type == "edge_metrics":
-        # Real-time metrics - could update GUI here
-        pass
+        data = message.get("data", {})
+        # Log a summary of edge metrics
+        logger.debug(f"Edge Metrics: {data}")
     
     elif msg_type == "error":
         logger.error(f"Backend error: {message.get('message', 'Unknown error')}")
@@ -65,6 +69,9 @@ def handle_message(message: dict):
     elif msg_type == "system":
         data = message.get("data", {})
         logger.info(f"System: {data.get('event', '')} - {data.get('message', '')}")
+    
+    else:
+        logger.warning(f"Unknown message type: {msg_type}")
 
 
 def main():
