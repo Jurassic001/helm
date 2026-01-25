@@ -33,10 +33,10 @@ class MainWindow:
         self.setup_ui_elements()
 
         # --- Access QLabel for camera feed ---
-        self.camera_feed = self.window.findChild(QLabel, "camera_feed")
-        if self.camera_feed is None:
+        self.cameraLabel = self.window.findChild(QLabel, "cameraLabel")
+        if self.cameraLabel is None:
             raise RuntimeError(
-                "camera_feed not found. Make sure QLabel objectName is 'camera_feed'"
+                "cameraLabel not found. Make sure QLabel objectName is 'cameraLabel'"
             )
 
         # --- Set initial window size ---
@@ -95,10 +95,10 @@ class MainWindow:
         pixmap = QPixmap.fromImage(qt_image)
 
         # Scale to fit QLabel
-        self.camera_feed.setPixmap(
+        self.cameraLabel.setPixmap(
             pixmap.scaled(
-                self.camera_feed.width(),
-                self.camera_feed.height(),
+                self.cameraLabel.width(),
+                self.cameraLabel.height(),
                 Qt.AspectRatioMode.KeepAspectRatio,
                 Qt.TransformationMode.SmoothTransformation
             )

@@ -6,73 +6,495 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>790</width>
-    <height>484</height>
+    <width>900</width>
+    <height>580</height>
    </rect>
   </property>
+  <property name="font">
+   <font>
+    <family>Segoe UI</family>
+    <pointsize>10</pointsize>
+   </font>
+  </property>
   <property name="windowTitle">
-   <string>Dialog</string>
+   <string>HELM Dashboard</string>
+  </property>
+  <property name="styleSheet">
+   <string notr="true">QDialog {
+    background-color: #1a1a2e;
+}
+QTabWidget::pane {
+    border: none;
+    background-color: #16213e;
+    border-radius: 8px;
+}
+QTabBar::tab {
+    background-color: #1a1a2e;
+    color: #a0a0a0;
+    padding: 10px 24px;
+    margin-right: 2px;
+    border-top-left-radius: 6px;
+    border-top-right-radius: 6px;
+    font-weight: bold;
+}
+QTabBar::tab:selected {
+    background-color: #16213e;
+    color: #ffffff;
+}
+QTabBar::tab:hover:!selected {
+    background-color: #0f3460;
+    color: #ffffff;
+}
+QLabel {
+    color: #e0e0e0;
+}
+QPushButton {
+    background-color: #0f3460;
+    color: #ffffff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #1a5490;
+}
+QPushButton:pressed {
+    background-color: #0a2540;
+}
+QComboBox {
+    background-color: #0f3460;
+    color: #ffffff;
+    border: 1px solid #3a3a5a;
+    padding: 6px 12px;
+    border-radius: 6px;
+}
+QComboBox:hover {
+    border-color: #4a90d9;
+}
+QComboBox::drop-down {
+    border: none;
+    padding-right: 8px;
+}
+QComboBox QAbstractItemView {
+    background-color: #16213e;
+    color: #ffffff;
+    selection-background-color: #0f3460;
+}
+QTextBrowser {
+    background-color: #0f3460;
+    color: #e0e0e0;
+    border: 1px solid #3a3a5a;
+    border-radius: 6px;
+    padding: 8px;
+}</string>
   </property>
   <widget class="QTabWidget" name="tabWidget">
    <property name="geometry">
     <rect>
-     <x>0</x>
-     <y>0</y>
-     <width>801</width>
-     <height>481</height>
+     <x>10</x>
+     <y>10</y>
+     <width>880</width>
+     <height>560</height>
     </rect>
    </property>
    <property name="currentIndex">
     <number>0</number>
    </property>
    <widget class="QWidget" name="home">
+    <property name="styleSheet">
+     <string notr="true">QWidget#home {
+    background-color: #16213e;
+}</string>
+    </property>
     <attribute name="title">
-     <string>Home</string>
+     <string>  Home  </string>
     </attribute>
-    <widget class="QLabel" name="camera_feed">
+    
+    <!-- Left Camera Feed Section -->
+    <widget class="QFrame" name="leftFeedFrame">
      <property name="geometry">
       <rect>
-       <x>10</x>
-       <y>40</y>
-       <width>270</width>
-       <height>250</height>
+       <x>20</x>
+       <y>15</y>
+       <width>300</width>
+       <height>320</height>
       </rect>
      </property>
+     <property name="styleSheet">
+      <string notr="true">QFrame#leftFeedFrame {
+    background-color: #1a1a2e;
+    border-radius: 10px;
+    border: 1px solid #3a3a5a;
+}</string>
+     </property>
      <property name="frameShape">
-      <enum>QFrame::Shape::Box</enum>
+      <enum>QFrame::Shape::StyledPanel</enum>
+     </property>
+    </widget>
+    <widget class="QLabel" name="liveFeedTitle">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>25</y>
+       <width>120</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>12</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #4a90d9; background: transparent;</string>
      </property>
      <property name="text">
       <string>Live Feed</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="cameraLabel">
+     <property name="geometry">
+      <rect>
+       <x>30</x>
+       <y>55</y>
+       <width>280</width>
+       <height>210</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #0a0a15;
+border: 2px solid #3a3a5a;
+border-radius: 8px;
+color: #606080;</string>
+     </property>
+     <property name="text">
+      <string>Camera Feed Loading...</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
-    <widget class="QLabel" name="sec_level_label">
+    <widget class="QPushButton" name="help_button">
      <property name="geometry">
       <rect>
-       <x>610</x>
-       <y>15</y>
-       <width>71</width>
-       <height>16</height>
+       <x>30</x>
+       <y>280</y>
+       <width>130</width>
+       <height>36</height>
       </rect>
      </property>
      <property name="text">
-      <string>Security Level</string>
+      <string>Help Guide</string>
+     </property>
+    </widget>
+
+    <!-- Center Analysis Section -->
+    <widget class="QFrame" name="analysisFrame">
+     <property name="geometry">
+      <rect>
+       <x>340</x>
+       <y>15</y>
+       <width>200</width>
+       <height>320</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QFrame#analysisFrame {
+    background-color: #1a1a2e;
+    border-radius: 10px;
+    border: 1px solid #3a3a5a;
+}</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::StyledPanel</enum>
+     </property>
+    </widget>
+    <widget class="QLabel" name="analysis_label">
+     <property name="geometry">
+      <rect>
+       <x>350</x>
+       <y>25</y>
+       <width>100</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>12</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #4a90d9; background: transparent;</string>
+     </property>
+     <property name="text">
+      <string>Analysis</string>
+     </property>
+    </widget>
+    <widget class="QTextBrowser" name="stats_text">
+     <property name="geometry">
+      <rect>
+       <x>350</x>
+       <y>55</y>
+       <width>180</width>
+       <height>80</height>
+      </rect>
+     </property>
+     <property name="html">
+      <string>&lt;html&gt;&lt;body style="font-family:'Segoe UI'; font-size:9pt; color:#e0e0e0;"&gt;
+&lt;p&gt;Pulse: --&lt;/p&gt;
+&lt;p&gt;Breathing: --&lt;/p&gt;
+&lt;p&gt;Expression: --&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="threat_estimate_label">
+     <property name="geometry">
+      <rect>
+       <x>350</x>
+       <y>145</y>
+       <width>180</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #a0a0a0; background: transparent;</string>
+     </property>
+     <property name="text">
+      <string>THREAT ESTIMATE</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="threat_level_label">
+     <property name="geometry">
+      <rect>
+       <x>370</x>
+       <y>180</y>
+       <width>140</width>
+       <height>36</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>14</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #22c55e;
+color: #ffffff;
+border-radius: 6px;
+padding: 4px;</string>
+     </property>
+     <property name="text">
+      <string>SAFE</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+    <widget class="QLabel" name="summary_label">
+     <property name="geometry">
+      <rect>
+       <x>350</x>
+       <y>225</y>
+       <width>100</width>
+       <height>20</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #a0a0a0; background: transparent;</string>
+     </property>
+     <property name="text">
+      <string>Summary</string>
+     </property>
+    </widget>
+    <widget class="QTextBrowser" name="stats_text_2">
+     <property name="geometry">
+      <rect>
+       <x>350</x>
+       <y>250</y>
+       <width>180</width>
+       <height>70</height>
+      </rect>
+     </property>
+     <property name="html">
+      <string>&lt;html&gt;&lt;body style="font-family:'Segoe UI'; font-size:9pt; color:#808090;"&gt;
+&lt;p style="font-style:italic;"&gt;No individual detected...&lt;/p&gt;
+&lt;/body&gt;&lt;/html&gt;</string>
+     </property>
+    </widget>
+
+    <!-- Right Augmented Feed Section -->
+    <widget class="QFrame" name="rightFeedFrame">
+     <property name="geometry">
+      <rect>
+       <x>560</x>
+       <y>15</y>
+       <width>300</width>
+       <height>320</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QFrame#rightFeedFrame {
+    background-color: #1a1a2e;
+    border-radius: 10px;
+    border: 1px solid #3a3a5a;
+}</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::StyledPanel</enum>
+     </property>
+    </widget>
+    <widget class="QLabel" name="augmentedFeedTitle">
+     <property name="geometry">
+      <rect>
+       <x>570</x>
+       <y>25</y>
+       <width>180</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>12</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #4a90d9; background: transparent;</string>
+     </property>
+     <property name="text">
+      <string>Augmented Feed</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="camera_feed_2">
+     <property name="geometry">
+      <rect>
+       <x>570</x>
+       <y>55</y>
+       <width>280</width>
+       <height>210</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #0a0a15;
+border: 2px solid #3a3a5a;
+border-radius: 8px;
+color: #606080;</string>
+     </property>
+     <property name="text">
+      <string>Augmented View</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignCenter</set>
+     </property>
+    </widget>
+
+    <!-- Bottom Controls Section -->
+    <widget class="QFrame" name="controlsFrame">
+     <property name="geometry">
+      <rect>
+       <x>20</x>
+       <y>350</y>
+       <width>840</width>
+       <height>160</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">QFrame#controlsFrame {
+    background-color: #1a1a2e;
+    border-radius: 10px;
+    border: 1px solid #3a3a5a;
+}</string>
+     </property>
+     <property name="frameShape">
+      <enum>QFrame::Shape::StyledPanel</enum>
+     </property>
+    </widget>
+    <widget class="QLabel" name="controls_label">
+     <property name="geometry">
+      <rect>
+       <x>35</x>
+       <y>360</y>
+       <width>120</width>
+       <height>24</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>12</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #4a90d9; background: transparent;</string>
+     </property>
+     <property name="text">
+      <string>Controls</string>
+     </property>
+    </widget>
+    <widget class="QLabel" name="sec_level_label">
+     <property name="geometry">
+      <rect>
+       <x>35</x>
+       <y>400</y>
+       <width>110</width>
+       <height>30</height>
+      </rect>
+     </property>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>10</pointsize>
+       <bold>true</bold>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #e0e0e0; background: transparent;</string>
+     </property>
+     <property name="text">
+      <string>Security Level:</string>
+     </property>
+     <property name="alignment">
+      <set>Qt::AlignmentFlag::AlignVCenter</set>
      </property>
     </widget>
     <widget class="QComboBox" name="sec_level_combo">
      <property name="geometry">
       <rect>
-       <x>690</x>
-       <y>10</y>
-       <width>93</width>
-       <height>26</height>
+       <x>150</x>
+       <y>398</y>
+       <width>120</width>
+       <height>34</height>
       </rect>
      </property>
      <item>
       <property name="text">
-       <string>Light</string>
+       <string>Low</string>
       </property>
      </item>
      <item>
@@ -86,168 +508,79 @@
       </property>
      </item>
     </widget>
-    <widget class="QTextBrowser" name="stats_text">
+    <widget class="QLabel" name="status_label">
      <property name="geometry">
       <rect>
-       <x>290</x>
-       <y>80</y>
-       <width>181</width>
-       <height>71</height>
+       <x>35</x>
+       <y>450</y>
+       <width>300</width>
+       <height>24</height>
       </rect>
      </property>
-     <property name="html">
-      <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-hr { height: 1px; border-width: 0; }
-li.unchecked::marker { content: &quot;\2610&quot;; }
-li.checked::marker { content: &quot;\2612&quot;; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Pulse&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Breathing&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Face&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Placeholder&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Place&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Lace&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;Ac&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;A&lt;/p&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;.&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>9</pointsize>
+      </font>
      </property>
-    </widget>
-    <widget class="QLabel" name="analysis_label">
-     <property name="geometry">
-      <rect>
-       <x>360</x>
-       <y>60</y>
-       <width>51</width>
-       <height>20</height>
-      </rect>
+     <property name="styleSheet">
+      <string notr="true">color: #22c55e; background: transparent;</string>
      </property>
      <property name="text">
-      <string>Analysis</string>
+      <string>System Active - Monitoring</string>
      </property>
     </widget>
-    <widget class="QLabel" name="threat_estimate_label">
+    <widget class="QPushButton" name="alert_button">
      <property name="geometry">
       <rect>
-       <x>330</x>
-       <y>150</y>
-       <width>101</width>
-       <height>20</height>
+       <x>710</x>
+       <y>400</y>
+       <width>140</width>
+       <height>40</height>
       </rect>
      </property>
+     <property name="styleSheet">
+      <string notr="true">background-color: #dc2626;</string>
+     </property>
      <property name="text">
-      <string>THREAT ESTIMATE</string>
+      <string>Alert</string>
      </property>
     </widget>
-    <widget class="QLabel" name="threat_level_label">
+   </widget>
+   <widget class="QWidget" name="accessibility">
+    <property name="styleSheet">
+     <string notr="true">QWidget#accessibility {
+    background-color: #16213e;
+}</string>
+    </property>
+    <attribute name="title">
+     <string>  Accessibility  </string>
+    </attribute>
+    <widget class="QLabel" name="accessibility_placeholder">
      <property name="geometry">
       <rect>
-       <x>330</x>
-       <y>170</y>
-       <width>101</width>
-       <height>20</height>
+       <x>340</x>
+       <y>220</y>
+       <width>200</width>
+       <height>40</height>
       </rect>
      </property>
-     <property name="whatsThis">
-      <UInt>0</UInt>
+     <property name="font">
+      <font>
+       <family>Segoe UI</family>
+       <pointsize>12</pointsize>
+      </font>
+     </property>
+     <property name="styleSheet">
+      <string notr="true">color: #606080;</string>
      </property>
      <property name="text">
-      <string>SAFE</string>
+      <string>Accessibility Options</string>
      </property>
      <property name="alignment">
       <set>Qt::AlignmentFlag::AlignCenter</set>
      </property>
     </widget>
-    <widget class="QLabel" name="summary_label">
-     <property name="geometry">
-      <rect>
-       <x>360</x>
-       <y>200</y>
-       <width>51</width>
-       <height>20</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Summary</string>
-     </property>
-    </widget>
-    <widget class="QTextBrowser" name="stats_text_2">
-     <property name="geometry">
-      <rect>
-       <x>290</x>
-       <y>220</y>
-       <width>181</width>
-       <height>71</height>
-      </rect>
-     </property>
-     <property name="html">
-      <string>&lt;!DOCTYPE HTML PUBLIC &quot;-//W3C//DTD HTML 4.0//EN&quot; &quot;http://www.w3.org/TR/REC-html40/strict.dtd&quot;&gt;
-&lt;html&gt;&lt;head&gt;&lt;meta name=&quot;qrichtext&quot; content=&quot;1&quot; /&gt;&lt;meta charset=&quot;utf-8&quot; /&gt;&lt;style type=&quot;text/css&quot;&gt;
-p, li { white-space: pre-wrap; }
-hr { height: 1px; border-width: 0; }
-li.unchecked::marker { content: &quot;\2610&quot;; }
-li.checked::marker { content: &quot;\2612&quot;; }
-&lt;/style&gt;&lt;/head&gt;&lt;body style=&quot; font-family:'Segoe UI'; font-size:9pt; font-weight:400; font-style:normal;&quot;&gt;
-&lt;p style=&quot; margin-top:0px; margin-bottom:0px; margin-left:0px; margin-right:0px; -qt-block-indent:0; text-indent:0px;&quot;&gt;No individual detected...&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
-     </property>
-    </widget>
-    <widget class="QLabel" name="camera_label">
-     <property name="geometry">
-      <rect>
-       <x>10</x>
-       <y>20</y>
-       <width>61</width>
-       <height>21</height>
-      </rect>
-     </property>
-     <property name="frameShape">
-      <enum>QFrame::Shape::Box</enum>
-     </property>
-     <property name="text">
-      <string>Live Feed</string>
-     </property>
-     <property name="alignment">
-      <set>Qt::AlignmentFlag::AlignLeading|Qt::AlignmentFlag::AlignLeft|Qt::AlignmentFlag::AlignVCenter</set>
-     </property>
-    </widget>
-    <widget class="QLabel" name="help_icon">
-     <property name="geometry">
-      <rect>
-       <x>40</x>
-       <y>370</y>
-       <width>41</width>
-       <height>41</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string/>
-     </property>
-     <property name="pixmap">
-      <pixmap>gui/assets/info_icon.png</pixmap>
-     </property>
-     <property name="scaledContents">
-      <bool>true</bool>
-     </property>
-    </widget>
-    <widget class="QPushButton" name="help_button">
-     <property name="geometry">
-      <rect>
-       <x>100</x>
-       <y>380</y>
-       <width>81</width>
-       <height>26</height>
-      </rect>
-     </property>
-     <property name="text">
-      <string>Help</string>
-     </property>
-    </widget>
-   </widget>
-   <widget class="QWidget" name="accessibility">
-    <attribute name="title">
-     <string>Accessibility</string>
-    </attribute>
    </widget>
   </widget>
  </widget>
