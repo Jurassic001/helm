@@ -1,72 +1,102 @@
 # Helm - AI Coding Instructions
 
-## Architecture Overview
+## Project Overview
+Helm is a security-focused vitals monitoring application combining a **Windows-side Python GUI** with a **WSL2-side C++ backend** that interfaces with the SmartSpectra SDK. The system streams camera video via FFmpeg TCP relay from Windows to WSL for physiological threat assessment.
 
-Helm is a **dual-environment** security vitals monitoring system:
-- **Windows**: Python orchestrator (`main.py`) + FFmpeg camera streaming + PySide6 GUI (WIP)
-- **WSL (Ubuntu 22.04)**: C++ backend (`src/main.cpp`) using SmartSpectra SDK for physiological processing
-
-**Data flow**: Camera (Windows) → FFmpeg TCP stream → WSL C++ backend → JSON stdout → Python callbacks → GUI
+## Architecture & Data Flow
 
 ```
-Windows Python          WSL C++
-┌──────────────┐       ┌─────────────────┐
-│ main.py      │       │ helm_vitals     │
-│ HelmBackend  │◄─JSON─┤ (SmartSpectra)  │
-│ FFmpegStream │─TCP──►│                 │
-└──────────────┘       └─────────────────┘
+Windows (Python)                    WSL2 (C++)
+┌─────────────────┐                ┌─────────────────┐
+│ main.py         │                │ helm_vitals     │
+│   ↓             │  TCP stream    │   (main.cpp)    │
+│ FFmpegStream ───┼───────────────►│   SmartSpectra  │
+│   (startup.py)  │                │       ↓         │
+│       ↓         │  JSON stdout   │   JSON output   │
+│ HelmBackend ────┼◄───────────────┼───────────────┘
+│       ↓         │
+│ MainWindow      │
+│   (app.py)      │
+└─────────────────┘
 ```
 
-## Critical Build & Run Commands
+- **Entry point**: [main.py](../main.py) - orchestrates backend startup and Qt event loop
+- **Backend orchestration**: [lib/startup.py](../lib/startup.py) - FFmpegStream + HelmBackend classes manage Windows↔WSL communication
+- **GUI**: [gui/app.py](../gui/app.py) - PySide6 MainWindow with OpenCV/MediaPipe wireframe overlay
+- **Threat detection**: [lib/threat_eval.py](../lib/threat_eval.py) - normalizes vitals against population baselines
+- **Threat summaries**: [lib/threat_summery.py](../lib/threat_summery.py) - Claude-powered natural language threat assessments
+- **C++ backend**: [src/main.cpp](../src/main.cpp) - headless JSON output processor using SmartSpectra SDK
+
+## Critical Setup Requirements
+
+### WSL2 Mirrored Networking (Non-Negotiable)
+The TCP streaming architecture **requires** mirrored networking. Without it, Windows cannot reach WSL and vice versa:
+```
+# C:\Users\<user>\.wslconfig
+[wsl2]
+networkingMode=mirrored
+```
+
+### API Key Configuration
+Copy `gui/example-settings.json` → `gui/settings.json` and add your SmartSpectra API key.
+
+## Build & Run Commands
 
 ```bash
 # Python (Windows) - uses uv package manager
-uv sync                  # Install dependencies
-uv run main.py           # Run application
+uv sync                      # Install dependencies
+uv run main.py               # Run application
 
-# C++ backend (WSL Ubuntu 22.04 only)
-cd src/build && cmake .. && make
+# C++ (WSL2)
+cd src/build && cmake .. && make    # Build helm_vitals binary
 ```
 
-The C++ binary at `src/build/helm_vitals` is invoked by Python via `wsl -d Ubuntu-22.04`.
+## Code Patterns & Conventions
 
-## Key Code Patterns
+### Message Protocol
+All backend↔frontend communication uses JSON messages with this structure:
+```python
+{"type": "core_metrics"|"edge_metrics"|"status"|"error", "timestamp_ms": ..., "data": {...}}
+```
+Handle messages in callbacks registered via `HelmBackend.register_callback()`.
 
-### Python Layer (`lib/startup.py`)
-- `HelmBackend`: High-level orchestrator combining `FFmpegStream` + `HelmVitalsBackend`
-- `FFmpegStream`: TCP relay server (prevents buffer overflow) - reads FFmpeg stdout, forwards to connected clients
-- `HelmVitalsBackend`: WSL process manager parsing JSON from helm_vitals stdout
-- **Callbacks**: Register with `backend.register_callback(fn)` to receive parsed JSON messages
+### Threat Scoring System
+The `ThreatDetector` in [lib/threat_eval.py](../lib/threat_eval.py) uses:
+- **Z-score normalization** against population baselines (HR: 70±12 BPM, breathing: 16±4)
+- **Time-windowed averaging** (default 0.5s) to smooth noisy vitals
+- **Security level thresholds** defined in `MainWindow.THREAT_THRESHOLDS` dict
 
-### C++ Layer (`src/main.cpp`)
-- Uses `absl::GetFlag()` for command-line parsing
-- `JsonOutputter`: Thread-safe JSON output class - all stdout goes through `g_outputter`
-- Metric extraction functions: `ExtractPulseJson()`, `ExtractBreathingJson()`, etc.
-- SmartSpectra container callbacks: `SetOnCoreMetricsOutput()`, `SetOnEdgeMetricsOutput()`, `SetOnStatusChange()`
+### AI Threat Summaries
+The `ThreatSummaryGenerator` in [lib/threat_summery.py](../lib/threat_summery.py) provides Claude-powered natural language summaries:
+- Receives metrics dict with `threat_score`, `heart_rate`, `breathing_rate`, `eda`, `chest_breathing`
+- Compares against baselines and formats deviation percentages
+- Returns 2-3 sentence professional assessment via Claude API
+- Requires Anthropic API key in settings
 
-### JSON Message Types (C++ → Python)
-| Type | Description |
-|------|-------------|
-| `status` | Face positioning/lighting feedback |
-| `core_metrics` | Cloud-processed vitals (pulse, breathing, BP) |
-| `edge_metrics` | Real-time local metrics (breathing traces, EDA) |
-| `system` | Lifecycle events (initialized, shutdown) |
-| `error` | Error messages |
+### Qt/PySide6 Patterns
+- UI defined in Qt Designer: [gui/designer2.ui](../gui/designer2.ui)
+- Load UI dynamically via `QUiLoader` (not compiled `.py` files)
+- Camera frames processed in `QTimer` callback at ~30 FPS
+- MediaPipe Holistic used for face/hand/pose wireframe overlay
 
-## Configuration
+### C++ SDK Integration
+- SmartSpectra SDK callbacks deliver protobuf `MetricsBuffer` objects
+- Extract latest values from `RepeatedPtrField` using `*field.rbegin()`
+- Thread-safe JSON output via `JsonOutputter` class with mutex
 
-- **API Key**: Store in `gui/settings.json` (copy from `gui/example-settings.json`)
-- **Resolution**: Hardcoded in `main.py` - 1080p default (4K unavailable via DirectShow)
-- **WSL distro**: Hardcoded as `Ubuntu-22.04` in `lib/startup.py` (SDK requirement)
+## Key Files to Understand
 
-## Dependencies
+| File | Purpose |
+|------|---------|
+| [lib/startup.py](../lib/startup.py) | FFmpeg TCP relay + WSL process management |
+| [lib/threat_eval.py](../lib/threat_eval.py) | Vitals normalization and threat scoring |
+| [lib/threat_summery.py](../lib/threat_summery.py) | Claude AI threat summary generation |
+| [gui/app.py](../gui/app.py) | Qt GUI, camera handling, MediaPipe overlay |
+| [src/main.cpp](../src/main.cpp) | C++ SmartSpectra integration, JSON output |
 
-- **SmartSpectra SDK**: `libsmartspectra-dev=2.0.4` (WSL apt package from Presage PPA)
-- **Python**: Exactly 3.12.12 with loguru, opencv-python, pyside6
-- **Camera**: Logitech Brio 4K (other cameras not yet supported)
+## Testing & Debugging
 
-## Development Notes
-
-- GUI in `gui/app.py` is WIP - currently just a placeholder
-- The TCP relay pattern in `FFmpegStream` prevents FFmpeg buffer overflow when backend processes frames slower than capture rate
-- Always test C++ changes by running the full Python orchestrator, not helm_vitals directly
+- Set `VERBOSITY = 3` in [main.py](../main.py) for trace-level logging via loguru
+- C++ verbosity: `--verbosity 3` flag shows detailed metrics
+- C++ `--show_gui` flag enables SmartSpectra's built-in debug visualization (separate from Python GUI)
+- Check `.wslconfig` if TCP streaming fails (verify `networkingMode=mirrored`)
