@@ -1,7 +1,7 @@
 import time
 from collections import deque
 from typing import Dict, Optional
-
+import anthropic
 
 class ThreatDetector:
     def __init__(self, averaging_window=0.5):
@@ -254,3 +254,4 @@ class ThreatDetector:
             "chest_breathing": self.current_chest_breathing,
             "threat_score": self.current_threat_score,
         }
+    
