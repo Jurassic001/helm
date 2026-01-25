@@ -2,7 +2,14 @@ import sys
 import os
 import cv2
 
-from PySide6.QtWidgets import QApplication, QLabel, QComboBox, QMessageBox, QPushButton
+# Ensure project root is on sys.path for lib imports when running as script
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
+
+from lib.ThreatEval import ThreatDetector
+
+from PySide6.QtWidgets import QApplication, QLabel, QComboBox, QMessageBox, QPushButton, QTextBrowser
 from PySide6.QtCore import QTimer, Qt, QFile
 from PySide6.QtGui import QImage, QPixmap, QColor
 from PySide6.QtUiTools import QUiLoader
@@ -34,16 +41,16 @@ class MainWindow:
             "DANGER": 0.60,
         },
     }
-    def update_threat_score(self, new_score):
-        """Update the composite threat score and refresh the threat estimate."""
-        self.composite_threat_score = new_score
 
 
-    def __init__(self):
+    def __init__(self, detector: ThreatDetector):
+        self.detector = detector
         # Variable for composite threat score
-        self.composite_threat_score = 0.4 # number 0-1 representing overall threat level
+        self.composite_threat_score = 0 # number 0-1 representing overall threat level
         # Variable for current security level
         self.current_security_level = "LOW"  # Possible values: "LOW", "MEDIUM", "HIGH"    
+        # Variable for vitals dictionary
+        self.vitals = {}
 
         # Variable to track threat estimate
         self.threat_estimate = "FRAME CLEAR"  # Possible values: "FRAME CLEAR", "SAFE", "CAUTION", "WARNING", "DANGER"
@@ -115,6 +122,9 @@ class MainWindow:
                 self.update_security_level(initial_level_text)
             else:
                 self.calculate_threat_estimate()
+
+        # Stats text widget (for displaying vitals)
+        self.stats_text = self.window.findChild(QTextBrowser, "stats_text")
 
         # Help button
         help_button = self.window.findChild(QPushButton, "help_button")
@@ -227,6 +237,41 @@ class MainWindow:
             app.quit()
 
     def update_frame(self):
+        # TODO: Replace with real incoming packet; this is a placeholder sample
+        sample_packet = '{"type":"core_metrics","timestamp_ms":1769308247784,"data":{"pulse":{"heart_rate":{"value":85,"stable":true,"confidence":0.95}},"breathing":{"respiratory_rate":{"value":18,"stable":true}}}}'
+
+        threat_score = self.detector.process_packet(sample_packet)
+        if threat_score is not None:
+            self.composite_threat_score = threat_score
+            self.calculate_threat_estimate()
+        
+        self.vitals = self.detector.get_all_metrics()
+        
+        # Update stats_text with vitals dictionary
+        if self.stats_text and self.vitals:
+            # Map keys to plain English with units
+            labels = {
+                'heart_rate': ('Heart Rate', 'BPM'),
+                'breathing_rate': ('Breathing Rate', 'BPM'),
+                'eda': ('EDA', ''),
+                'chest_breathing': ('Chest Breathing', '')
+            }
+            
+            vitals_lines = []
+            for key, value in self.vitals.items():
+                label, unit = labels.get(key, (key.replace('_', ' ').title(), ''))
+                if value is not None:
+                    formatted_value = f"{value:.1f}" if isinstance(value, (int, float)) else str(value)
+                    if unit and key != 'threat_score':
+                        vitals_lines.append(f"{label}: {formatted_value} {unit}")
+                    else:
+                        if key != 'threat_score':
+                            vitals_lines.append(f"{label}: {formatted_value}")
+                else:
+                    vitals_lines.append(f"{label}: --")
+            
+            self.stats_text.setText("\n".join(vitals_lines))
+
         ret, frame = self.cap.read()
         if not ret:
             return
@@ -265,7 +310,13 @@ class MainWindow:
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    main_window = MainWindow()
+
+    detector = ThreatDetector()
+
+    main_window = MainWindow(detector)
+
     app.aboutToQuit.connect(main_window.close)
+
     main_window.show()
+
     sys.exit(app.exec())

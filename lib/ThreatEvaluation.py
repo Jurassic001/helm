@@ -272,8 +272,7 @@ class PresageThreatDetector:
             'heart_rate': self.current_hr,
             'breathing_rate': self.current_breathing,
             'eda': self.current_eda,
-            'chest_breathing': self.current_chest_breathing,
-            'threat_score': self.current_threat_score
+            'chest_breathing': self.current_chest_breathing
         }
 
 
