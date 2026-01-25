@@ -49,19 +49,10 @@ def handle_message(message: dict):
         data = message.get("data", {})
         logger.info(f"Status: {data.get('description', 'Unknown')}")
     
-    elif msg_type == "core_metrics":
+    elif msg_type == "core_metrics" or msg_type == "edge_metrics":
         data = message.get("data", {})
-        pulse = data.get("pulse", {})
-        hr = pulse.get("heart_rate", {})
-        breathing = data.get("breathing", {})
-        br = breathing.get("breathing_rate", {})
-        logger.info(f"Core Metrics - HR: {hr.get('value', 'N/A')} bpm (stable={hr.get('stable')}), "
-                    f"BR: {br.get('value', 'N/A')} bpm (stable={br.get('stable')})")
-    
-    elif msg_type == "edge_metrics":
-        data = message.get("data", {})
-        # Log a summary of edge metrics
-        logger.debug(f"Edge Metrics: {data}")
+        logger.debug(f"Physiology data: {data}")
+        # TODO: React to data
     
     elif msg_type == "error":
         logger.error(f"Backend error: {message.get('message', 'Unknown error')}")
