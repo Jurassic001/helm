@@ -506,18 +506,28 @@ class MainWindow:
         msg_box = QMessageBox(self.window)
         msg_box.setWindowTitle("Help - Helm")
         msg_box.setText(
-            "Welcome to Helm! Keep an eye on your surroundings with the live feed and quick status cues.\n\n"
-            "Quick Guide\n"
-            "- [Security Level] (green/orange/red text): Sets sensitivity (Low, Medium, High). Higher = more cautious.\n"
-            "- [Threat Estimate]: Color-coded label (gray/green/gold/orange/crimson) showing current risk.\n"
-            "- [Live Feed]: Camera view fills the frame; use the red Quit button to exit cleanly.\n"
-            "- [Analysis]: Basic stats (pulse, breathing, expression) to spot changes.\n"
-            "- [Summary]: One-line rationale explaining why the threat level is set (e.g., object detected, agitated behavior).\n"
-            "- [Accessibility] tab: adjust comfort settings.\n\n"
-            "Tips\n"
-            "- Start on Medium; move to High if you need stricter alerts.\n"
-            "- Watch the threat color and Summary for context before reacting.\n"
-            "- If the feed stalls, try switching tabs or restart with Quit then relaunch."
+            "Welcome to Helm! A security-focused vitals monitoring system that analyzes physiological signals for threat assessment.\n\n"
+            "INTERFACE OVERVIEW\n"
+            "• Live Feed: Real-time camera view of the monitored subject.\n"
+            "• Augmented Feed: Wireframe overlay showing face mesh, hand landmarks, and body pose tracking. Wire color reflects threat level.\n"
+            "• Analysis Panel: Displays real-time biometric data:\n"
+            "   - Heart Rate (BPM)\n"
+            "   - EDA (Electrodermal Activity - stress indicator)\n"
+            "   - Chest Breathing amplitude\n"
+            "   - Talking detection (%)\n"
+            "   - Blink Rate (%)\n"
+            "   - Micromotion (fidgeting indicator)\n"
+            "• Threat Level: Color-coded status (FRAME CLEAR → SAFE → CAUTION → WARNING → DANGER).\n"
+            "• Summary: AI-generated threat assessment. Click 'Generate' for a Claude-powered analysis of current vitals.\n\n"
+            "CONTROLS\n"
+            "• Security Level (Low/Medium/High): Adjusts threat sensitivity thresholds. Higher = stricter alerting.\n"
+            "• Theme: Switch between System, Light, and Dark modes.\n"
+            "• Quit: Cleanly shuts down camera stream and backend processes.\n\n"
+            "TIPS\n"
+            "• Start on Low or Medium; increase to High for security-critical scenarios.\n"
+            "• The wireframe color matches threat level - green is safe, red indicates danger.\n"
+            "• Use 'Generate' summary for AI context on why the current threat level is assigned.\n"
+            "• Ensure good lighting for accurate face detection and vital sign extraction."
         )
         # Set custom icon from info_icon.png
         icon_pixmap = QPixmap("gui/assets/info_icon.png")
@@ -550,23 +560,30 @@ class MainWindow:
             # Map keys to plain English with units
             labels = {
                 "heart_rate": ("Heart Rate", "BPM"),
-                "breathing_rate": ("Breathing Rate", "BPM"),
                 "eda": ("EDA", ""),
                 "chest_breathing": ("Chest Breathing", ""),
+                "talking": ("Talking", "%"),
+                "blink_rate": ("Blink Rate", "%"),
+                "micromotion": ("Micromotion", ""),
             }
 
+            # Define display order for metrics
+            display_order = ["heart_rate", "eda", "chest_breathing", "talking", "blink_rate", "micromotion"]
+
             vitals_lines = []
-            for key, value in self.vitals.items():
+            for key in display_order:
+                if key not in self.vitals:
+                    continue
+                value = self.vitals[key]
                 label, unit = labels.get(key, (key.replace("_", " ").title(), ""))
                 if value is not None:
                     formatted_value = f"{value:.1f}" if isinstance(value, (int, float)) else str(value)
-                    if unit and key != "threat_score":
+                    if unit:
                         vitals_lines.append(f"{label}: {formatted_value} {unit}")
                     else:
-                        if key != "threat_score":
-                            vitals_lines.append(f"{label}: {formatted_value}")
+                        vitals_lines.append(f"{label}: {formatted_value}")
                 else:
-                    vitals_lines.append(f"{label}: --")
+                    vitals_lines.append(f"{label}: N/A")
 
             self.stats_text.setText("\n".join(vitals_lines))
 

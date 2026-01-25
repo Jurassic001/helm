@@ -8,9 +8,9 @@ class ThreatDetector:
         # Population-based norms (typical resting values)
         self.baselines = {
             "hr": {"mean": 70, "std": 12},
-            "breathing": {"mean": 16, "std": 4},
             "eda": {"mean": 0.15, "std": 0.05},
             "chest_breathing": {"mean": 0.4, "std": 0.1},
+            "micromotion": {"mean": 0.1, "std": 0.05},
         }
 
         # Averaging window in seconds
@@ -18,18 +18,22 @@ class ThreatDetector:
 
         # Buffers to collect data for averaging (store with timestamps)
         self.hr_buffer = deque()
-        self.breathing_buffer = deque()
         self.eda_buffer = deque()
         self.chest_breathing_buffer = deque()
+        self.talking_buffer = deque()
+        self.blink_buffer = deque()
+        self.micromotion_buffer = deque()
 
         # History for rate of change (averaged values)
         self.metric_history = deque(maxlen=30)
 
         # Current values (latest averages)
         self.current_hr = None
-        self.current_breathing = None
         self.current_eda = None
         self.current_chest_breathing = None
+        self.current_talking = None  # Percentage of time talking (0-100)
+        self.current_blink_rate = None  # Percentage of time blinking detected
+        self.current_micromotion = None
         self.current_threat_score = 0.0
 
         # Last calculation time
@@ -67,30 +71,47 @@ class ThreatDetector:
             if hr is not None:
                 self.hr_buffer.append((current_time, hr))
 
-        # Buffer breathing rate
-        breathing_data = data.get("breathing", {}).get("respiratory_rate", {})
-        if breathing_data.get("confidence", 0) != 0:
-            breathing = breathing_data.get("value")
-            if breathing is not None:
-                self.breathing_buffer.append((current_time, breathing))
+        # Buffer face metrics (talking and blinking)
+        face_data = data.get("face", {})
+
+        # Buffer talking detection (convert bool to 0/1)
+        talking_data = face_data.get("talking", {})
+        if talking_data.get("stable", False):
+            talking = 1.0 if talking_data.get("detected", False) else 0.0
+            self.talking_buffer.append((current_time, talking))
+
+        # Buffer blink detection (convert bool to 0/1)
+        blinking_data = face_data.get("blinking", {})
+        if blinking_data.get("stable", False):
+            blink = 1.0 if blinking_data.get("detected", False) else 0.0
+            self.blink_buffer.append((current_time, blink))
 
     def _buffer_edge_metrics(self, data: Dict, timestamp_ms: int):
         """Add edge metrics to buffers"""
         current_time = time.time()
 
-        # Buffer chest breathing
+        # Buffer chest breathing (edge metrics use 'stable' not 'confidence')
         chest_data = data.get("chest_breathing", {})
-        if chest_data.get("confidence", 0) != 0:
-            chest = chest_data.get("value")
-            if chest is not None:
-                self.chest_breathing_buffer.append((current_time, chest))
+        chest_value = chest_data.get("value")
+        if chest_value is not None:
+            self.chest_breathing_buffer.append((current_time, chest_value))
 
-        # Buffer EDA
+        # Buffer EDA (edge metrics use 'stable' not 'confidence')
         eda_data = data.get("eda", {})
-        if eda_data.get("confidence", 0) != 0:
-            eda = eda_data.get("value")
-            if eda is not None:
-                self.eda_buffer.append((current_time, eda))
+        eda_value = eda_data.get("value")
+        if eda_value is not None:
+            self.eda_buffer.append((current_time, eda_value))
+
+        # Buffer micromotion (average of glutes and knees)
+        glutes_data = data.get("micromotion_glutes", {})
+        knees_data = data.get("micromotion_knees", {})
+        glutes_value = glutes_data.get("value")
+        knees_value = knees_data.get("value")
+        if glutes_value is not None or knees_value is not None:
+            # Average available values
+            values = [v for v in [glutes_value, knees_value] if v is not None]
+            micromotion = sum(values) / len(values)
+            self.micromotion_buffer.append((current_time, micromotion))
 
     def _clean_old_buffer_data(self, buffer: deque):
         """Remove data older than averaging window"""
@@ -115,26 +136,32 @@ class ThreatDetector:
 
         # Calculate averages from buffers
         avg_hr = self._calculate_average(self.hr_buffer)
-        avg_breathing = self._calculate_average(self.breathing_buffer)
         avg_eda = self._calculate_average(self.eda_buffer)
         avg_chest_breathing = self._calculate_average(self.chest_breathing_buffer)
+        avg_talking = self._calculate_average(self.talking_buffer)
+        avg_blink = self._calculate_average(self.blink_buffer)
+        avg_micromotion = self._calculate_average(self.micromotion_buffer)
 
         # Update current values
         if avg_hr is not None:
             self.current_hr = avg_hr
-        if avg_breathing is not None:
-            self.current_breathing = avg_breathing
         if avg_eda is not None:
             self.current_eda = avg_eda
         if avg_chest_breathing is not None:
             self.current_chest_breathing = avg_chest_breathing
+        if avg_talking is not None:
+            self.current_talking = avg_talking * 100  # Convert to percentage
+        if avg_blink is not None:
+            self.current_blink_rate = avg_blink * 100  # Convert to percentage
+        if avg_micromotion is not None:
+            self.current_micromotion = avg_micromotion
 
         # Store in history for rate of change
         metrics = {
             "hr": avg_hr,
-            "breathing": avg_breathing,
             "eda": avg_eda,
             "chest_breathing": avg_chest_breathing,
+            "micromotion": avg_micromotion,
             "timestamp_ms": int(time.time() * 1000),
         }
         self.metric_history.append(metrics)
@@ -162,13 +189,6 @@ class ThreatDetector:
             z_score = (hr - baseline["mean"]) / baseline["std"]
             scores["hr"] = max(0, min(1, z_score / 3.0))
 
-        # Breathing rate
-        if metrics.get("breathing") is not None:
-            breathing = metrics["breathing"]
-            baseline = self.baselines["breathing"]
-            z_score = (breathing - baseline["mean"]) / baseline["std"]
-            scores["breathing"] = max(0, min(1, abs(z_score) / 3.0))
-
         # EDA
         if metrics.get("eda") is not None:
             eda = metrics["eda"]
@@ -182,6 +202,13 @@ class ThreatDetector:
             baseline = self.baselines["chest_breathing"]
             z_score = (chest - baseline["mean"]) / baseline["std"]
             scores["chest_breathing"] = max(0, min(1, abs(z_score) / 3.0))
+
+        # Micromotion (higher values indicate more fidgeting/stress)
+        if metrics.get("micromotion") is not None:
+            micromotion = metrics["micromotion"]
+            baseline = self.baselines["micromotion"]
+            z_score = (micromotion - baseline["mean"]) / baseline["std"]
+            scores["micromotion"] = max(0, min(1, abs(z_score) / 3.0))
 
         return scores
 
@@ -205,7 +232,8 @@ class ThreatDetector:
 
     def _combine_scores(self, normalized: Dict, rate_of_change: float) -> float:
         """Combine all scores with weights"""
-        weights = {"hr": 0.30, "eda": 0.25, "breathing": 0.20, "chest_breathing": 0.10, "rate_of_change": 0.15}
+        # Weights redistributed: removed breathing (20%), added micromotion (20%)
+        weights = {"hr": 0.30, "eda": 0.25, "micromotion": 0.20, "chest_breathing": 0.10, "rate_of_change": 0.15}
 
         total_score = 0.0
         total_weight = 0.0
@@ -229,9 +257,17 @@ class ThreatDetector:
         """Get current averaged heart rate (bpm)"""
         return self.current_hr
 
-    def get_breathing_rate(self) -> Optional[float]:
-        """Get current averaged breathing rate (breaths/min)"""
-        return self.current_breathing
+    def get_talking(self) -> Optional[float]:
+        """Get current talking percentage (0-100)"""
+        return self.current_talking
+
+    def get_blink_rate(self) -> Optional[float]:
+        """Get current blink rate percentage (0-100)"""
+        return self.current_blink_rate
+
+    def get_micromotion(self) -> Optional[float]:
+        """Get current micromotion value"""
+        return self.current_micromotion
 
     def get_eda(self) -> Optional[float]:
         """Get current averaged EDA value"""
@@ -249,8 +285,10 @@ class ThreatDetector:
         """Get all current metrics at once"""
         return {
             "heart_rate": self.current_hr,
-            "breathing_rate": self.current_breathing,
             "eda": self.current_eda,
             "chest_breathing": self.current_chest_breathing,
+            "talking": self.current_talking,
+            "blink_rate": self.current_blink_rate,
+            "micromotion": self.current_micromotion,
             "threat_score": self.current_threat_score,
         }
