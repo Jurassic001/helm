@@ -22,7 +22,7 @@ from lib.startup import HelmBackend, Resolution
 CAMERA_NAME = "Logitech BRIO"
 RESOLUTION = Resolution.RES_1080P  # 4K not available via DirectShow on Windows
 STREAM_PORT = 5000
-VERBOSITY = 3
+VERBOSITY = 1
 SHOW_GUI = False
 
 logger.configure(
