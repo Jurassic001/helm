@@ -45,6 +45,7 @@ class MainWindow:
         self.current_security_level = "LOW"  # Possible values: "LOW", "MEDIUM", "HIGH"
         # Variable for vitals dictionary
         self.vitals = {}
+        self.threat_score = None
 
         # Variable to track threat estimate
         self.threat_estimate = "FRAME CLEAR"  # Possible values: "FRAME CLEAR", "SAFE", "CAUTION", "WARNING", "DANGER"
@@ -290,8 +291,10 @@ class MainWindow:
 
     def gui_message_handler(self, message: dict):
         """Evaluate threat score from incoming message"""
-        data = message.get("data", {})
-        self.threat_score = self.detector.process_message(data)
+        msg_type = message.get("type", "unknown")
+
+        if msg_type in ("core_metrics", "edge_metrics"):
+            self.threat_score = self.detector.process_message(message)
 
     def show(self):
         self.window.show()
@@ -299,4 +302,4 @@ class MainWindow:
     def close(self):
         self.timer.stop()
         self.cap.release()
-        logger.debug("MainWindow closed and resources released")
+        logger.success("MainWindow closed and resources released")

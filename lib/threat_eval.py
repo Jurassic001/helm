@@ -2,6 +2,9 @@ import time
 from collections import deque
 from typing import Dict, Optional
 
+from loguru import logger
+
+
 class ThreatDetector:
     def __init__(self, averaging_window=0.5):
         # Population-based norms (typical resting values)
@@ -34,6 +37,8 @@ class ThreatDetector:
         # Last calculation time
         self.last_calculation_time = time.time()
 
+        logger.success("ThreatDetector Online")
+
     def process_message(self, message: dict) -> Optional[float]:
         """Process incoming Presage messages and add to buffers"""
         msg_type = message.get("type")
@@ -45,7 +50,6 @@ class ThreatDetector:
         # Extract and buffer data
         if msg_type == "core_metrics":
             self._buffer_core_metrics(data, timestamp_ms)
-            logger.warning
         elif msg_type == "edge_metrics":
             self._buffer_edge_metrics(data, timestamp_ms)
 
@@ -62,14 +66,14 @@ class ThreatDetector:
 
         # Buffer heart rate
         pulse_data = data.get("pulse", {}).get("heart_rate", {})
-        if pulse_data.get("stable"):
+        if pulse_data.get("confidence", 0) != 0:
             hr = pulse_data.get("value")
             if hr is not None:
                 self.hr_buffer.append((current_time, hr))
 
         # Buffer breathing rate
         breathing_data = data.get("breathing", {}).get("respiratory_rate", {})
-        if breathing_data.get("stable"):
+        if breathing_data.get("confidence", 0) != 0:
             breathing = breathing_data.get("value")
             if breathing is not None:
                 self.breathing_buffer.append((current_time, breathing))
@@ -80,16 +84,17 @@ class ThreatDetector:
 
         # Buffer chest breathing
         chest_data = data.get("chest_breathing", {})
-        if chest_data.get("stable"):
+        if chest_data.get("confidence", 0) != 0:
             chest = chest_data.get("value")
             if chest is not None:
                 self.chest_breathing_buffer.append((current_time, chest))
 
         # Buffer EDA
         eda_data = data.get("eda", {})
-        if eda_data.get("value") is not None:
+        if eda_data.get("confidence", 0) != 0:
             eda = eda_data.get("value")
-            self.eda_buffer.append((current_time, eda))
+            if eda is not None:
+                self.eda_buffer.append((current_time, eda))
 
     def _clean_old_buffer_data(self, buffer: deque):
         """Remove data older than averaging window"""

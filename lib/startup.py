@@ -432,6 +432,7 @@ class HelmVitalsBackend:
             self.config.video_url,
             "--verbosity",
             str(self.config.verbosity),
+            "--enable_micromotion"
         ]
 
         if self.config.enable_edge_metrics:
@@ -475,7 +476,7 @@ class HelmVitalsBackend:
                 self._running = False
                 return False
 
-            logger.info("helm_vitals backend started successfully")
+            logger.success("helm_vitals backend started successfully")
             return True
 
         except Exception as e:
