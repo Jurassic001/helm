@@ -62,32 +62,11 @@ class BackendConfig:
     api_key: str = ""
     wsl_distro: str = "Ubuntu-22.04"
     binary_path: str = "/mnt/c/Users/mhabe/Documents/VSCode/helm/src/build/helm_vitals"
-    video_url: str = ""  # Will be set dynamically with Windows host IP
+    video_url: str = "localhost:5000"  # Will be set dynamically with Windows host IP
     verbosity: int = 1
     enable_edge_metrics: bool = True
     show_gui: bool = False
     extra_args: list[str] = field(default_factory=list)
-
-
-def get_windows_host_ip() -> str:
-    """Get the Windows host IP address as seen from WSL."""
-    try:
-        result = subprocess.run(
-            ["wsl", "-d", "Ubuntu-22.04", "-e", "bash", "-c",
-             "cat /etc/resolv.conf | grep nameserver | awk '{print $2}'"],
-            capture_output=True,
-            text=True,
-            timeout=5
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            ip = result.stdout.strip()
-            logger.debug(f"Windows host IP from WSL: {ip}")
-            return ip
-    except Exception as e:
-        logger.warning(f"Failed to get Windows host IP: {e}")
-    
-    # Fallback - try common WSL2 host addresses
-    return "host.docker.internal"  # This also works in modern WSL2
 
 
 def wait_for_port(host: str, port: int, timeout: float = 10.0) -> bool:
@@ -497,14 +476,10 @@ class HelmBackend:
             port=stream_port,
         )
         
-        # Get Windows host IP for WSL to connect to
-        windows_host_ip = get_windows_host_ip()
-        logger.info(f"Windows host IP for WSL: {windows_host_ip}")
-        
         self.backend_config = BackendConfig(
             api_key=api_key,
             wsl_distro=WSL_DISTRO,
-            video_url=f"tcp://{windows_host_ip}:{stream_port}",
+            video_url=f"tcp://localhost:{stream_port}",
             show_gui=show_gui,
             verbosity=verbosity,
         )
