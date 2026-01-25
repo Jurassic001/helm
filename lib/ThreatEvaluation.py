@@ -1,28 +1,45 @@
 import time
 from collections import deque
 from typing import Dict, Optional
+import json
 import statistics
 
 
-class PersonEvaluaton:
+class ThreatEvaluation:
     # Stand alone class that takes in data that'll be passed to it, and outputs a danger evaluation score
     
     def __init__(self):
-        
-        self.baseline = {
-            'hr': {'mean': 70, 'std': 12},  # Typical resting HR
-            'breathing': {'mean': 16, 'std': 4},  # Typical breathing rate
-            'eda': {'mean': 0.15, 'std': 0.05},  # Typical EDA (adjust based on sensor)
-            'chest_breathing': {'mean': 0.4, 'std': 0.1}  # Normalized chest movement
+        # Population-based norms (typical resting values)
+        self.baselines = {
+            'hr': {'mean': 70, 'std': 12},
+            'breathing': {'mean': 16, 'std': 4},
+            'eda': {'mean': 0.15, 'std': 0.05},
+            'chest_breathing': {'mean': 0.4, 'std': 0.1}
         }
-
-
-        self.metrics_history = deque(maxlen=100)  # Store last 100 evaluations
-
-
+        
+        # History for rate of change (last 30 data points)
+        self.metric_history = deque(maxlen=30)
+        
+        # Current threat info
         self.current_threat_score = 0.0
         self.individual_scores = {}
-
+        
+    def process_packet(self, packet_string: str) -> Optional[Dict]:
+        """
+        Process a JSON packet string from Presage
+        
+        Args:
+            packet_string: JSON string like '{"type":"core_metrics",...}'
+            
+        Returns:
+            Threat assessment dict or None
+        """
+        try:
+            message = json.loads(packet_string)
+            return self.process_message(message)
+        except json.JSONDecodeError as e:
+            print(f"Error parsing JSON: {e}")
+            return None
         
     def process_message(self, message: Dict) -> Optional[Dict]:
         """Process incoming Presage messages"""
@@ -36,7 +53,7 @@ class PersonEvaluaton:
             return self._process_edge_metrics(data, timestamp_ms)
             
         return None
-
+    
     def _process_core_metrics(self, data: Dict, timestamp_ms: int) -> Optional[Dict]:
         """Extract heart rate and breathing from core metrics"""
         metrics = {}
@@ -64,8 +81,9 @@ class PersonEvaluaton:
         
         # Get EDA
         eda_data = data.get("eda", {})
-        metrics['eda'] = eda_data.get("value")
-        metrics['eda_stable'] = eda_data.get("stable")
+        if eda_data.get("value") is not None:
+            metrics['eda'] = eda_data.get("value")
+            metrics['eda_stable'] = eda_data.get("stable")
         
         return self._calculate_threat(metrics, timestamp_ms)
     
@@ -187,8 +205,7 @@ class PersonEvaluaton:
     
     def _get_threat_level(self, score: float) -> str:
         """Convert score to threat level"""
-        scale = 100
-
+        
         if score < 0.30:
             return "LOW"
         elif score < 0.55:
@@ -197,6 +214,30 @@ class PersonEvaluaton:
             return "HIGH"
         else:
             return "CRITICAL"
+
+
+# Usage with your packet data
+if __name__ == "__main__":
+    detector = ThreatEvaluation()
+    
+    # Your actual data packets
+    packets = [
+        '{"type":"edge_metrics","timestamp_ms":1769308247751,"data":{"chest_breathing":{"value":4.86284,"stable":true}}}',
+        '{"type":"core_metrics","timestamp_ms":1769308247784,"data":{"frame_timestamp":1769308247673027,"pulse":{"heart_rate":{"value":102.6,"stable":true,"confidence":0},"trace_latest":{"value":0.0314,"stable":true}},"breathing":{"respiratory_rate":{"value":12.6,"stable":true,"confidence":0},"chest_trace_latest":{"value":2.3812,"stable":true}},"blood_pressure":{},"face":{"blinking":{"detected":false,"stable":true},"talking":{"detected":false,"stable":true}}}}',
+        '{"type":"edge_metrics","timestamp_ms":1769308247784,"data":{"chest_breathing":{"value":4.9726,"stable":true}}}',
+        '{"type":"edge_metrics","timestamp_ms":1769308247817,"data":{"chest_breathing":{"value":4.9702,"stable":true}}}'
+    ]
+    
+    # Process each packet
+    for packet in packets:
+        result = detector.process_packet(packet)
+        
+        if result:
+            print(f"\nTimestamp: {result['timestamp_ms']}")
+            print(f"Threat Level: {result['threat_level']}")
+            print(f"Threat Score: {result['threat_score']:.3f}")
+            print(f"Individual Scores: {result['individual_scores']}")
+            print(f"Raw Metrics: {result['raw_metrics']}")
 
     
 
