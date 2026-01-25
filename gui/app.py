@@ -550,23 +550,30 @@ class MainWindow:
             # Map keys to plain English with units
             labels = {
                 "heart_rate": ("Heart Rate", "BPM"),
-                "breathing_rate": ("Breathing Rate", "BPM"),
                 "eda": ("EDA", ""),
                 "chest_breathing": ("Chest Breathing", ""),
+                "talking": ("Talking", "%"),
+                "blink_rate": ("Blink Rate", "%"),
+                "micromotion": ("Micromotion", ""),
             }
 
+            # Define display order for metrics
+            display_order = ["heart_rate", "eda", "chest_breathing", "talking", "blink_rate", "micromotion"]
+
             vitals_lines = []
-            for key, value in self.vitals.items():
+            for key in display_order:
+                if key not in self.vitals:
+                    continue
+                value = self.vitals[key]
                 label, unit = labels.get(key, (key.replace("_", " ").title(), ""))
                 if value is not None:
                     formatted_value = f"{value:.1f}" if isinstance(value, (int, float)) else str(value)
-                    if unit and key != "threat_score":
+                    if unit:
                         vitals_lines.append(f"{label}: {formatted_value} {unit}")
                     else:
-                        if key != "threat_score":
-                            vitals_lines.append(f"{label}: {formatted_value}")
+                        vitals_lines.append(f"{label}: {formatted_value}")
                 else:
-                    vitals_lines.append(f"{label}: --")
+                    vitals_lines.append(f"{label}: N/A")
 
             self.stats_text.setText("\n".join(vitals_lines))
 
