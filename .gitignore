@@ -17,3 +17,6 @@ wheels/
 # C++ build files
 build/
 dist/
+
+# settings file
+gui/settings.json

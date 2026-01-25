@@ -39,11 +39,16 @@ namespace settings = presage::smartspectra::container::settings;
 namespace vs = presage::smartspectra::video_source;
 
 // ================================ COMMAND LINE FLAGS ================================
-// Camera settings (optimized for 4K security camera)
-ABSL_FLAG(int, camera_device_index, 0, "Camera device index");
-ABSL_FLAG(int, capture_width_px, 3840, "Capture width (default 4K)");
-ABSL_FLAG(int, capture_height_px, 2160, "Capture height (default 4K)");
+// Camera/video source settings
+// Note: WSL USB passthrough (usbipd) typically limits bandwidth to 1080p max.
+// Use --video_url with Windows FFmpeg streaming for full 4K support.
+ABSL_FLAG(int, camera_device_index, 0, "Camera device index (ignored if --video_url is set)");
+ABSL_FLAG(int, capture_width_px, 1920, "Capture width (default 1080p for WSL compatibility)");
+ABSL_FLAG(int, capture_height_px, 1080, "Capture height (default 1080p for WSL compatibility)");
 ABSL_FLAG(pcam::CaptureCodec, codec, pcam::CaptureCodec::MJPG, "Video codec");
+
+// Network video source (for Windows FFmpeg streaming)
+ABSL_FLAG(std::string, video_url, "", "Video stream URL (e.g., tcp://localhost:5000). Overrides camera settings.");
 
 // API settings
 ABSL_FLAG(std::string, api_key, "", "SmartSpectra API key (required)");
@@ -496,6 +501,10 @@ int main(int argc, char** argv) {
         "  edge_metrics - Real-time local metrics (breathing traces, EDA)\n"
         "  error        - Error messages\n"
         "  system       - System events (initialized, shutdown)\n\n"
+        "Video source options:\n"
+        "  --video_url  - Stream URL (e.g., tcp://localhost:5000) for FFmpeg input\n"
+        "                 Use scripts/stream_camera.bat on Windows for 4K streaming\n"
+        "  Default: Direct camera at 1080p (WSL USB passthrough limitation)\n\n"
         "Debug options:\n"
         "  --show_gui   - Show SmartSpectra debug GUI (default: headless)\n"
     );
@@ -514,15 +523,24 @@ int main(int argc, char** argv) {
         }
     }
 
-    // Build settings for headless 4K capture
+    // Build settings
     settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest> app_settings{};
     
     // Video source settings
-    app_settings.video_source.device_index = absl::GetFlag(FLAGS_camera_device_index);
-    app_settings.video_source.capture_width_px = absl::GetFlag(FLAGS_capture_width_px);
-    app_settings.video_source.capture_height_px = absl::GetFlag(FLAGS_capture_height_px);
-    app_settings.video_source.codec = absl::GetFlag(FLAGS_codec);
-    app_settings.video_source.auto_lock = false;  // Disable auto exposure lock for better compatibility
+    std::string video_url = absl::GetFlag(FLAGS_video_url);
+    if (!video_url.empty()) {
+        // Use network stream (from Windows FFmpeg)
+        app_settings.video_source.input_video_path = video_url;
+        g_outputter.OutputJson("system", 
+            "{\"event\":\"video_source\",\"type\":\"stream\",\"url\":\"" + video_url + "\"}");
+    } else {
+        // Use local camera device
+        app_settings.video_source.device_index = absl::GetFlag(FLAGS_camera_device_index);
+        app_settings.video_source.capture_width_px = absl::GetFlag(FLAGS_capture_width_px);
+        app_settings.video_source.capture_height_px = absl::GetFlag(FLAGS_capture_height_px);
+        app_settings.video_source.codec = absl::GetFlag(FLAGS_codec);
+        app_settings.video_source.auto_lock = false;  // Disable auto exposure lock for better compatibility
+    }
     
     // General settings
     app_settings.headless = !absl::GetFlag(FLAGS_show_gui);  // Show GUI if --show_gui is set

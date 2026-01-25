@@ -1,164 +1,74 @@
-# Helm - AI Coding Instructions
+# Copilot Instructions for Helm
 
 ## Project Overview
 
-Helm is a security-focused vitals monitoring application that assesses physiological threat indicators via camera input. Combines a Python GUI frontend with a C++ backend interfacing with the [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) for real-time measurements.
+Helm is a **security-focused vitals monitoring application** with a cross-platform architecture:
+- **Python frontend** (Windows) - GUI and orchestration via PySide6
+- **C++ backend** (WSL/Linux) - Real-time processing using SmartSpectra SDK
+- **FFmpeg streaming** bridges Windows camera → WSL via TCP
 
-**Use cases:** Smart doorbells, security cameras, access control systems.
-
-> **Hackathon project** - GUI development is happening on feature branches.
-
-## Architecture
+## Architecture & Data Flow
 
 ```
-helm/
-├── main.py          # Python entry point - spawns C++ backend subprocess
-├── gui/app.py       # PySide6 GUI (in development on feature branches)
-└── src/             # C++ backend using SmartSpectra SDK
-    ├── main.cpp           # Headless vitals processor (JSON output to stdout)
-    └── CMakeLists.txt     # CMake build configuration
+Windows                          WSL (Ubuntu 22.04)
+┌─────────────┐    TCP:5000     ┌─────────────────┐
+│ FFmpeg      │ ───MJPEG────→   │ helm_vitals     │
+│ (DirectShow)│                 │ (SmartSpectra)  │
+└─────────────┘                 └────────┬────────┘
+                                         │ JSON stdout
+┌─────────────┐                          │
+│ main.py     │ ←────────────────────────┘
+│ (Python)    │ subprocess + line parsing
+└─────────────┘
 ```
 
-### Component Responsibilities
-- **Python layer**: GUI built with PySide6, spawns `helm_vitals` subprocess, parses JSON output
-- **C++ layer**: Real-time vitals extraction using SmartSpectra's `CpuContinuousRestForegroundContainer`
-- **Python-C++ bridge**: Subprocess with JSON over stdout (line-delimited)
+### Key Components
+- [main.py](../main.py) - Entry point, loads API key from `gui/settings.json`, starts `HelmBackend`
+- [lib/startup.py](../lib/startup.py) - Orchestrates `FFmpegStream` (Windows) + `HelmVitalsBackend` (WSL)
+- [src/main.cpp](../src/main.cpp) - Headless C++ processor, outputs JSON to stdout for Python consumption
 
-## Environment Setup
+## Build & Run Commands
 
-### Requirements
-- **Ubuntu 22.04** (via WSL on Windows)
-- SmartSpectra SDK v2.0.4
-
-### SmartSpectra SDK Installation
 ```bash
-# Add Presage PPA and install SDK (run in WSL/Ubuntu 22.04)
-curl -s "https://presage-security.github.io/PPA/KEY.gpg" | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/presage-technologies.gpg >/dev/null
-sudo curl -s --compressed -o /etc/apt/sources.list.d/presage-technologies.list "https://presage-security.github.io/PPA/presage-technologies.list"
-sudo apt update
-sudo apt install libphysiologyedge-dev=2.0.4 libsmartspectra-dev=2.0.4
+# C++ backend (run in WSL)
+cd src/build && cmake .. && make
+
+# Python app (run in Windows)
+uv run main.py
 ```
 
-### WSL Camera Setup (Windows)
-USB cameras require passthrough from Windows to WSL2 using `usbipd-win`.
+## Critical Conventions
 
-#### One-time setup (Windows PowerShell as Admin)
-```powershell
-# Install usbipd-win
-winget install usbipd
-```
-
-#### One-time setup (WSL)
-```bash
-sudo apt install -y v4l-utils linux-tools-generic hwdata usbutils
-```
-
-#### Each session (before running helm_vitals)
-1. **Windows**: Attach camera to WSL
-   ```powershell
-   usbipd list                        # Find your camera's BUSID
-   usbipd bind --busid <BUSID>        # First time only
-   usbipd attach --wsl --busid <BUSID>
-   ```
-
-2. **WSL**: Load the camera driver
-   ```bash
-   sudo modprobe uvcvideo
-   ls /dev/video*                     # Verify camera is available
-   ```
-
-## Key Conventions
-
-### C++ Backend Patterns
-- Uses SmartSpectra's callback-based async model for metrics/video/status updates
-- All callbacks must complete within **75ms** to avoid blocking incoming data
-- Error handling uses `absl::Status` - always check `.ok()` before proceeding
-- API key passed via CLI argument or `SMARTSPECTRA_API_KEY` environment variable
-
-### SmartSpectra SDK Usage
-
-See [main.cpp](../src/main.cpp):
-```cpp
-// Settings template: OperationMode::Continuous + IntegrationMode::Rest
-settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest> settings{
-    // headless=true for JSON output
-};
-
-// Critical callbacks:
-container.SetOnStatusChange(...)       // Face positioning, lighting feedback
-container.SetOnCoreMetricsOutput(...)  // Cloud-processed metrics (pulse, breathing, BP)
-container.SetOnEdgeMetricsOutput(...)  // Real-time local metrics (traces, EDA)
-```
-
-### JSON Output Schema (helm_vitals)
-
-All output is line-delimited JSON with structure:
+### JSON IPC Protocol
+The C++ backend communicates via structured JSON lines to stdout:
 ```json
-{"type":"<type>","timestamp_ms":<ms>,"data":{...}}
+{"type": "status|core_metrics|edge_metrics|error", "timestamp_ms": ..., "data": {...}}
 ```
+- Handle message types: `status`, `core_metrics`, `edge_metrics`, `error`, `system`
+- See `handle_message()` in [main.py](../main.py#L42-L57) for parsing pattern
 
-| Type | Description | Data Fields |
-|------|-------------|-------------|
-| `status` | Face/lighting feedback | `code`, `description`, `frame_timestamp` |
-| `core_metrics` | Cloud vitals | `pulse`, `breathing`, `blood_pressure`, `face` |
-| `edge_metrics` | Real-time local | `chest_breathing`, `eda`, `micromotion_*` |
-| `error` | Errors | `message` |
-| `system` | Events | `event`, `message` |
+### Resolution Constraints
+- WSL USB passthrough limits to **1080p max** (DirectShow limitation)
+- 4K requires FFmpeg streaming from Windows (current architecture)
+- Use `Resolution` enum in [lib/startup.py](../lib/startup.py#L33-L41)
 
-### Measurement Stability
+### Configuration
+- API key stored in `gui/settings.json` (gitignored) - copy from `gui/example-settings.json`
+- Hardcoded settings in `main.py` (camera name, resolution, port)
+- C++ flags defined via `ABSL_FLAG` macros in [src/main.cpp](../src/main.cpp#L42-L66)
 
-Every measurement includes a `stable` boolean:
-- **`stable: true`** — Measurement is reliable
-- **`stable: false`** — Measurement may be unreliable (subject moving, poor lighting, etc.)
+### Cross-Platform Paths
+- C++ binary path in WSL: `/mnt/c/Users/mhabe/Documents/VSCode/helm/src/build/helm_vitals`
+- Windows host IP detection: `get_windows_host_ip()` in [lib/startup.py](../lib/startup.py#L68-L81)
 
-Always check `stable` before using values in threat assessment.
+## Dependencies
 
-### Python Conventions
-- Python 3.12.12 required (pinned in pyproject.toml)
-- Use `loguru` for logging, not stdlib logging
-- GUI uses PySide6 (Qt6 bindings)
-
-## Build & Run
-
-#### Entering WSL (REQUIRED for C++ build/run)
-```bash
-# in project root
-wsl -d Ubuntu-22.04
-```
-
-### C++ Build (in WSL)
-```bash
-cd src/build
-cmake ..
-make
-```
-
-### Running
-
-```bash
-./helm_vitals --api_key <YOUR_API_KEY>
-# Output: JSON to stdout
-```
-
-### Python Environment
-```bash
-# Uses uv for dependency management (see pyproject.toml)
-uv sync
-python main.py
-```
-
-## External Dependencies
-
-| Component | Dependency | Purpose |
-|-----------|------------|---------|
-| C++ | [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) | Vitals extraction from camera |
-| C++ | OpenCV | Video capture |
-| C++ | glog | Logging infrastructure |
-| Python | PySide6 | Cross-platform GUI |
-| Python | opencv-python | Image processing |
+**Python (Windows):** `uv` for package management, PySide6, loguru, opencv-python
+**C++ (WSL):** SmartSpectra SDK 2.0.4, OpenCV, abseil-cpp, glog, protobuf
 
 ## Development Notes
 
-- **helm_vitals**: 4K default (3840x2160), headless, JSON output, auto-start recording
-- Press `Ctrl+C` to quit
-- C++ backend must be built/run in WSL (Ubuntu 22.04)
+- GUI in [gui/app.py](../gui/app.py) is empty/in development - PySide6 planned
+- `FFmpegStream` uses relay architecture to prevent buffer overflow (see class docstring)
+- Thread-safe JSON output via `JsonOutputter` class with mutex in C++
+- Graceful shutdown: handle SIGINT, call `backend.stop()` to clean up subprocesses

@@ -1,63 +1,62 @@
 # Helm
 
+<!-- TODO: Overhaul project description -->
+
 A security-focused vitals monitoring application that assesses physiological threat indicators via camera input. Combines a Python GUI frontend with a C++ backend interfacing with the [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) for real-time measurements (pulse, breathing, blood pressure, stress indicators).
 
 **Use cases:** Smart doorbells, security cameras, access control systems.
 
-> **Hackathon project** - GUI development is happening on feature branches.
-
-## Requirements
-
-- **Windows** with WSL2 (Ubuntu 22.04)
-- SmartSpectra API key from [physiology.presagetech.com](https://physiology.presagetech.com)
-- USB webcam (4K recommended for optimal detection)
-
 ## Setup
 
-<!-- TODO: Add repo setup stuff as well -->
+### Requirements
 
-### 0. Install Ubuntu-22..04 on WSL
+* Ubuntu 22.04 on WSL2 <!-- non-negotiable, required for compatibility with SmartSpectra SDK -->
+* FFmpeg on your Windows PATH
+* SmartSpectra API key from [physiology.presagetech.com](https://physiology.presagetech.com)
+* Logitech Brio 4k 60 FPS webcam (support for other models coming soon)
+* [uv by astral-sh](https://github.com/astral-sh/uv)
+
+### Configuring WSL
+
 ```bash
-wsl --install Ubuntu-22.04
-```
-
-### 1. Install SmartSpectra SDK (WSL)
-
-```bash
-# Add Presage PPA
-curl -s "https://presage-security.github.io/PPA/KEY.gpg" | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/presage-technologies.gpg >/dev/null
-sudo curl -s --compressed -o /etc/apt/sources.list.d/presage-technologies.list "https://presage-security.github.io/PPA/presage-technologies.list"
-
-# Install SDK
+# Essential build tools
 sudo apt update
-sudo apt install libphysiologyedge-dev=2.0.4 libsmartspectra-dev=2.0.4
+sudo apt install -y build-essential git lsb-release libcurl4-openssl-dev libssl-dev pkg-config libv4l-dev libgles2-mesa-dev libunwind-dev
+
+# Install latest cmake
+sudo apt remove --purge --auto-remove cmake
+sudo apt install -y software-properties-common lsb-release wget gnupg
+wget -O - https://apt.kitware.com/keys/kitware-archive-latest.asc 2>/dev/null | gpg --dearmor - | sudo tee /etc/apt/trusted.gpg.d/kitware.gpg >/dev/null
+echo "deb https://apt.kitware.com/ubuntu/ $(lsb_release -cs) main" | sudo tee /etc/apt/sources.list.d/kitware.list >/dev/null
+sudo apt update
+sudo apt install cmake
+
+# Download the GPG key
+curl -s "https://presage-security.github.io/PPA/KEY.gpg" | gpg --dearmor | sudo tee /etc/apt/trusted.gpg.d/presage-technologies.gpg >/dev/null
+# Copy the PPA list
+sudo curl -s --compressed -o /etc/apt/sources.list.d/presage-technologies.list "https://presage-security.github.io/PPA/presage-technologies.list"
+# Install/Upgrade the SDK
+sudo apt update
+sudo apt install libphysiologyedge-dev=2.0.4
+sudo apt install libsmartspectra-dev=2.0.4
+
+# At this point you may need to update your drivers, depending on the state of your webcam and stuff like that
 ```
 
-### 2. Install USB Passthrough (Windows)
-
-USB cameras need to be passed through to WSL2:
-
-```powershell
-# Run in PowerShell as Administrator
-winget install usbipd
-```
-
-Restart powershell and attach your camera to WSL:
-> You'll need to have WSL open in a seperate terminal before attaching it
-
-```powershell
-usbipd list
-usbipd bind --busid <BUSID>
-usbipd attach --wsl --busid <BUSID>
-```
-
-### 3. Install Camera Utilities (WSL)
+### Python environment in Windows
 
 ```bash
-sudo apt install -y v4l-utils linux-tools-generic hwdata usbutils
+# Install deps and setup venv
+uv sync
+
+# Set up API key
+cp gui/example-settings.json gui/settings.json
+echo "Configure your API key in gui/settings.json!"
 ```
 
-### 4. Build C++ Backend (WSL)
+## Build & Run
+
+### Building the detection layer in WSL
 
 ```bash
 cd src/build
@@ -65,35 +64,10 @@ cmake ..
 make
 ```
 
-### 5. Setup Python Environment
+### Python runtime
 
 ```bash
-# Uses uv for dependency management
-uv sync
-```
-
-## Running
-
-### Attach Camera (each session)
-
-**Windows PowerShell:**
-```powershell
-usbipd list                          # Find your camera's BUSID (e.g., 2-6)
-usbipd bind --busid <BUSID>          # First time only
-usbipd attach --wsl --busid <BUSID>  # Run each session
-```
-
-**WSL:**
-```bash
-sudo modprobe uvcvideo               # Load camera driver
-ls /dev/video*                       # Verify camera available
-```
-
-### Run Vitals Monitor
-
-```bash
-cd src/build
-./helm_vitals --api_key YOUR_API_KEY
+uv run main.py
 ```
 
 Press `Ctrl+C` to quit.
@@ -110,6 +84,8 @@ helm/
 ```
 
 ### JSON Output Format
+
+<!-- TODO: This shouldn't be user-facing -->
 
 ```json
 // status message structure
@@ -176,20 +152,6 @@ helm/
     }
 }
 ```
-
-### Command Line Options (helm_vitals)
-
-| Flag | Default | Description |
-|------|---------|-------------|
-| `--api_key` | (required) | SmartSpectra API key |
-| `--camera_device_index` | 0 | Camera device index |
-| `--capture_width_px` | 3840 | Capture width (4K default) |
-| `--capture_height_px` | 2160 | Capture height (4K default) |
-| `--buffer_duration` | 0.2 | Processing buffer (0.2-1.0s) |
-| `--verbosity` | 1 | Log level (0-3) |
-| `--enable_phasic_bp` | false | Enable blood pressure (requires model) |
-| `--enable_eda` | false | Enable electrodermal activity (requires model) |
-| `--enable_edge_metrics` | true | Enable real-time metrics |
 
 ## License
 
