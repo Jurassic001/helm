@@ -2,7 +2,7 @@ import sys
 import os
 import cv2
 
-from PySide6.QtWidgets import QApplication, QLabel, QComboBox
+from PySide6.QtWidgets import QApplication, QLabel, QComboBox, QMessageBox, QPushButton
 from PySide6.QtCore import QTimer, Qt, QFile
 from PySide6.QtGui import QImage, QPixmap, QColor
 from PySide6.QtUiTools import QUiLoader
@@ -10,6 +10,11 @@ from PySide6.QtUiTools import QUiLoader
 
 class MainWindow:
     def __init__(self):
+        # Variable for composite threat score
+        self.composite_threat_score = 0 # number 0-1 representing overall threat level
+        # Variable for current security level
+        self.current_security_level = "MEDIUM"  # Possible values: "LOW", "MEDIUM", "HIGH"
+
         # Variable to track threat estimate
         self.threat_estimate = "FRAME CLEAR"  # Possible values: "FRAME CLEAR", "SAFE", "CAUTION", "WARNING", "DANGER"
 
@@ -56,15 +61,22 @@ class MainWindow:
         # Security level combo box styling
         sec_level_combo = self.window.findChild(QComboBox, "sec_level_combo")
         if sec_level_combo:
-            # Set text colors: light=green, medium=yellow, heavy=red
+            # Set text colors: low=green, medium=yellow, heavy=red
             sec_level_combo.setItemData(0, QColor("green"), Qt.ForegroundRole)
             sec_level_combo.setItemData(1, QColor("orange"), Qt.ForegroundRole)
             sec_level_combo.setItemData(2, QColor("red"), Qt.ForegroundRole)
+            # Connect to update security level
+            sec_level_combo.currentTextChanged.connect(self.update_security_level)
         
         # Threat level label
         self.threat_level_label = self.window.findChild(QLabel, "threat_level_label")
         if self.threat_level_label:
             self.update_threat_level(self.threat_estimate)
+
+        # Help button
+        help_button = self.window.findChild(QPushButton, "help_button")
+        if help_button:
+            help_button.clicked.connect(self.show_help)
 
     def update_threat_level(self, threat_estimate):
         """Update the threat level label text and color"""
@@ -81,6 +93,45 @@ class MainWindow:
                 self.threat_level_label.setStyleSheet("color: orange;")
             elif threat_estimate == "DANGER":
                 self.threat_level_label.setStyleSheet("color: red;")
+
+    def update_security_level(self, text):
+        """Update current_security_level based on combo selection"""
+        if text == "Low":
+            self.current_security_level = "LOW"
+        elif text == "Medium":
+            self.current_security_level = "MEDIUM"
+        elif text == "High":
+            self.current_security_level = "HIGH"
+        print(f"Security level changed to: {self.current_security_level}")  # For debugging
+
+    def show_help(self):
+        """Show help dialog"""
+        msg_box = QMessageBox(self.window)
+        msg_box.setWindowTitle("Help - Helm")
+        msg_box.setText(
+            "Welcome to Helm! This tool helps keep an eye on your surroundings using a camera.\n\n"
+            "**Quick Guide:**\n"
+            "- **Security Level**: Choose how sensitive the system should be to potential threats (Low, Medium, High).\n"
+            "- **Threat Estimate**: See the current safety status at a glance (color changes to show risk level).\n"
+            "- **Live Feed**: Watch the real-time camera view to see what's happening.\n"
+            "- **Analysis**: Get simple stats about the person on camera, like their vital signs or facial expressions.\n"
+            "- **Summary**: A short description of the person, explaining why the threat level might be higher (e.g., if they have something that looks like a weapon).\n"
+            "- **Accessibility Tab**: Adjust settings for easier viewing.\n\n"
+            "**Tips:**\n"
+            "- Start with 'Medium' security level and adjust as needed.\n"
+            "- If something seems off, check the Summary for details.\n"
+            "- Use the Help button anytime for reminders!\n\n"
+            "Stay safe! If you have questions, reach out to support."
+        )
+        # Set custom icon from info_icon.png
+        icon_pixmap = QPixmap("gui/assets/info_icon.png")
+        if not icon_pixmap.isNull():
+            # Scale to standard icon size (e.g., 32x32)
+            scaled_pixmap = icon_pixmap.scaled(32, 32, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)
+            msg_box.setIconPixmap(scaled_pixmap)
+        else:
+            msg_box.setIcon(QMessageBox.Icon.Information)  # Fallback to default
+        msg_box.exec()
 
     def update_frame(self):
         ret, frame = self.cap.read()
