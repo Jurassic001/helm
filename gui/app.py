@@ -649,7 +649,16 @@ class MainWindow:
             self.threat_score = self.detector.process_message(message)
 
     def show(self):
+        # Use WindowStaysOnTopHint temporarily to force window to front on Windows
+        from PySide6.QtCore import Qt as QtCore
+        original_flags = self.window.windowFlags()
+        self.window.setWindowFlags(original_flags | QtCore.WindowStaysOnTopHint)
         self.window.show()
+        # Remove the always-on-top flag but keep window in front
+        self.window.setWindowFlags(original_flags)
+        self.window.show()
+        self.window.raise_()
+        self.window.activateWindow()
 
     def close(self):
         self.timer.stop()
