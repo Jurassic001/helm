@@ -2,7 +2,9 @@
 
 ## Project Overview
 
-Helm is a vitals monitoring application combining a Python GUI frontend with a C++ backend that interfaces with the [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) for real-time physiological measurements (pulse, breathing rate) via camera input.
+Helm is a security-focused vitals monitoring application that assesses physiological threat indicators via camera input. Combines a Python GUI frontend with a C++ backend interfacing with the [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) for real-time measurements.
+
+**Use cases:** Smart doorbells, security cameras, access control systems.
 
 > **Hackathon project** - GUI development is happening on feature branches.
 
@@ -10,17 +12,17 @@ Helm is a vitals monitoring application combining a Python GUI frontend with a C
 
 ```
 helm/
-├── main.py          # Python entry point - orchestrates GUI and backend
+├── main.py          # Python entry point - spawns C++ backend subprocess
 ├── gui/app.py       # PySide6 GUI (in development on feature branches)
 └── src/             # C++ backend using SmartSpectra SDK
-    ├── hello_vitals.cpp   # Core vitals processing with OpenCV
+    ├── main.cpp           # Headless vitals processor (JSON output to stdout)
     └── CMakeLists.txt     # CMake build configuration
 ```
 
 ### Component Responsibilities
-- **Python layer**: GUI built with PySide6, logging via Loguru, OpenCV for image handling
+- **Python layer**: GUI built with PySide6, spawns `helm_vitals` subprocess, parses JSON output
 - **C++ layer**: Real-time vitals extraction using SmartSpectra's `CpuContinuousRestForegroundContainer`
-- **Python-C++ bridge**: TBD (integration approach not yet finalized)
+- **Python-C++ bridge**: Subprocess with JSON over stdout (line-delimited)
 
 ## Environment Setup
 
@@ -51,7 +53,7 @@ winget install usbipd
 sudo apt install -y v4l-utils linux-tools-generic hwdata usbutils
 ```
 
-#### Each session (before running hello_vitals)
+#### Each session (before running helm_vitals)
 1. **Windows**: Attach camera to WSL
    ```powershell
    usbipd list                        # Find your camera's BUSID
@@ -73,19 +75,43 @@ sudo apt install -y v4l-utils linux-tools-generic hwdata usbutils
 - Error handling uses `absl::Status` - always check `.ok()` before proceeding
 - API key passed via CLI argument or `SMARTSPECTRA_API_KEY` environment variable
 
-### SmartSpectra SDK Usage (see [hello_vitals.cpp](../src/hello_vitals.cpp))
+### SmartSpectra SDK Usage
+
+See [main.cpp](../src/main.cpp):
 ```cpp
 // Settings template: OperationMode::Continuous + IntegrationMode::Rest
-container::settings::Settings<
-    container::settings::OperationMode::Continuous,
-    container::settings::IntegrationMode::Rest
-> settings;
+settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest> settings{
+    // headless=true for JSON output
+};
 
-// Critical callbacks to implement:
-container->SetOnCoreMetricsOutput(...)  // Pulse/breathing data
-container->SetOnVideoOutput(...)         // Frame rendering
-container->SetOnStatusChange(...)        // Processing status
+// Critical callbacks:
+container.SetOnStatusChange(...)       // Face positioning, lighting feedback
+container.SetOnCoreMetricsOutput(...)  // Cloud-processed metrics (pulse, breathing, BP)
+container.SetOnEdgeMetricsOutput(...)  // Real-time local metrics (traces, EDA)
 ```
+
+### JSON Output Schema (helm_vitals)
+
+All output is line-delimited JSON with structure:
+```json
+{"type":"<type>","timestamp_ms":<ms>,"data":{...}}
+```
+
+| Type | Description | Data Fields |
+|------|-------------|-------------|
+| `status` | Face/lighting feedback | `code`, `description`, `frame_timestamp` |
+| `core_metrics` | Cloud vitals | `pulse`, `breathing`, `blood_pressure`, `face` |
+| `edge_metrics` | Real-time local | `chest_breathing`, `eda`, `micromotion_*` |
+| `error` | Errors | `message` |
+| `system` | Events | `event`, `message` |
+
+### Measurement Stability
+
+Every measurement includes a `stable` boolean:
+- **`stable: true`** — Measurement is reliable
+- **`stable: false`** — Measurement may be unreliable (subject moving, poor lighting, etc.)
+
+Always check `stable` before using values in threat assessment.
 
 ### Python Conventions
 - Python 3.12.12 required (pinned in pyproject.toml)
@@ -94,12 +120,24 @@ container->SetOnStatusChange(...)        // Processing status
 
 ## Build & Run
 
+#### Entering WSL (REQUIRED for C++ build/run)
+```bash
+# in project root
+wsl -d Ubuntu-22.04
+```
+
 ### C++ Build (in WSL)
 ```bash
 cd src/build
 cmake ..
 make
-./hello_vitals YOUR_API_KEY
+```
+
+### Running
+
+```bash
+./helm_vitals --api_key <YOUR_API_KEY>
+# Output: JSON to stdout
 ```
 
 ### Python Environment
@@ -114,14 +152,13 @@ python main.py
 | Component | Dependency | Purpose |
 |-----------|------------|---------|
 | C++ | [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) | Vitals extraction from camera |
-| C++ | OpenCV | Video capture and HUD rendering |
+| C++ | OpenCV | Video capture |
 | C++ | glog | Logging infrastructure |
 | Python | PySide6 | Cross-platform GUI |
 | Python | opencv-python | Image processing |
 
 ## Development Notes
 
-- Camera defaults: 1280x720 @ MJPG codec, device index 0
-- If changing resolution, the HUD positioning must also be updated
-- Press 's' to start/stop recording, 'q' or ESC to quit in C++ app
+- **helm_vitals**: 4K default (3840x2160), headless, JSON output, auto-start recording
+- Press `Ctrl+C` to quit
 - C++ backend must be built/run in WSL (Ubuntu 22.04)

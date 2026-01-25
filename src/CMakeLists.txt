@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.27.0)
-project(SmartSpectraHelloVitals CXX)
+project(HelmVitals CXX)
  
 # Set C++ standard
 set(CMAKE_CXX_STANDARD 17)
@@ -8,13 +8,11 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 # Find required packages
 find_package(SmartSpectra REQUIRED)
 find_package(OpenCV REQUIRED)
- 
-# Create executable
-add_executable(hello_vitals hello_vitals.cpp)
- 
-# Link libraries
-target_link_libraries(hello_vitals
+
+# ============== helm_vitals (headless JSON output for Python integration) ==============
+add_executable(helm_vitals main.cpp)
+
+target_link_libraries(helm_vitals
     SmartSpectra::Container
-    SmartSpectra::Gui
     ${OpenCV_LIBS}
 )
