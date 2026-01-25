@@ -11,9 +11,9 @@ from PySide6.QtUiTools import QUiLoader
 class MainWindow:
     def __init__(self):
         # Variable for composite threat score
-        self.composite_threat_score = 0 # number 0-1 representing overall threat level
+        self.composite_threat_score = 0.4 # number 0-1 representing overall threat level
         # Variable for current security level
-        self.current_security_level = "MEDIUM"  # Possible values: "LOW", "MEDIUM", "HIGH"
+        self.current_security_level = "LOW"  # Possible values: "LOW", "MEDIUM", "HIGH"    
 
         # Variable to track threat estimate
         self.threat_estimate = "FRAME CLEAR"  # Possible values: "FRAME CLEAR", "SAFE", "CAUTION", "WARNING", "DANGER"
@@ -71,7 +71,8 @@ class MainWindow:
         # Threat level label
         self.threat_level_label = self.window.findChild(QLabel, "threat_level_label")
         if self.threat_level_label:
-            self.update_threat_level(self.threat_estimate)
+            # Calculate initial threat estimate after UI is set up
+            self.calculate_threat_estimate()
 
         # Help button
         help_button = self.window.findChild(QPushButton, "help_button")
@@ -84,15 +85,15 @@ class MainWindow:
         if self.threat_level_label:
             self.threat_level_label.setText(threat_estimate)
             if threat_estimate == "FRAME CLEAR":
-                self.threat_level_label.setStyleSheet("color: gray;")
+                self.threat_level_label.setStyleSheet("color: #666666; font-weight: bold;")
             elif threat_estimate == "SAFE":
-                self.threat_level_label.setStyleSheet("color: green;")
+                self.threat_level_label.setStyleSheet("color: #008000; font-weight: bold;")
             elif threat_estimate == "CAUTION":
-                self.threat_level_label.setStyleSheet("color: yellow;")
+                self.threat_level_label.setStyleSheet("color: #DAA520; font-weight: bold;")
             elif threat_estimate == "WARNING":
-                self.threat_level_label.setStyleSheet("color: orange;")
+                self.threat_level_label.setStyleSheet("color: #FF8C00; font-weight: bold;")
             elif threat_estimate == "DANGER":
-                self.threat_level_label.setStyleSheet("color: red;")
+                self.threat_level_label.setStyleSheet("color: #DC143C; font-weight: bold;")
 
     def update_security_level(self, text):
         """Update current_security_level based on combo selection"""
@@ -102,7 +103,57 @@ class MainWindow:
             self.current_security_level = "MEDIUM"
         elif text == "High":
             self.current_security_level = "HIGH"
-        print(f"Security level changed to: {self.current_security_level}")  # For debugging
+        # Re-calculate threat estimate with new security level
+        self.calculate_threat_estimate()
+
+    def calculate_threat_estimate(self):
+        """Calculate threat estimate based on composite_threat_score and security level"""
+        # Define thresholds based on security level
+        if self.current_security_level == "LOW":
+            # More lenient thresholds
+            thresholds = {
+                "FRAME CLEAR": 0.0,
+                "SAFE": 0.15,
+                "CAUTION": 0.40,
+                "WARNING": 0.65,
+                "DANGER": 0.85
+            }
+        elif self.current_security_level == "MEDIUM":
+            # Moderate thresholds
+            thresholds = {
+                "FRAME CLEAR": 0.0,
+                "SAFE": 0.10,
+                "CAUTION": 0.30,
+                "WARNING": 0.55,
+                "DANGER": 0.75
+            }
+        else:  # HIGH
+            # Strict thresholds
+            thresholds = {
+                "FRAME CLEAR": 0.0,
+                "SAFE": 0.05,
+                "CAUTION": 0.20,
+                "WARNING": 0.40,
+                "DANGER": 0.60
+            }
+        
+        # Determine threat estimate based on score
+        if self.composite_threat_score == 0.0:
+            new_estimate = "FRAME CLEAR"
+        elif self.composite_threat_score <= thresholds["SAFE"]:
+            new_estimate = "FRAME CLEAR"
+        elif self.composite_threat_score <= thresholds["CAUTION"]:
+            new_estimate = "SAFE"
+        elif self.composite_threat_score <= thresholds["WARNING"]:
+            new_estimate = "CAUTION"
+        elif self.composite_threat_score <= thresholds["DANGER"]:
+            new_estimate = "WARNING"
+        else:
+            new_estimate = "DANGER"
+        
+        # Update the threat level if it changed
+        if new_estimate != self.threat_estimate:
+            self.update_threat_level(new_estimate)
 
     def show_help(self):
         """Show help dialog"""
@@ -115,7 +166,7 @@ class MainWindow:
             "- **Threat Estimate**: See the current safety status at a glance (color changes to show risk level).\n"
             "- **Live Feed**: Watch the real-time camera view to see what's happening.\n"
             "- **Analysis**: Get simple stats about the person on camera, like their vital signs or facial expressions.\n"
-            "- **Summary**: A short description of the person, explaining why the threat level might be higher (e.g., if they have something that looks like a weapon).\n"
+            "- **Summary**: A short description of the person, explaining why the threat level is at its current value(e.g., if they have something that looks like a weapon).\n"
             "- **Accessibility Tab**: Adjust settings for easier viewing.\n\n"
             "**Tips:**\n"
             "- Start with 'Medium' security level and adjust as needed.\n"
