@@ -1,4 +1,7 @@
+import json
 import os
+import threading
+from pathlib import Path
 
 import cv2
 import mediapipe as mp
@@ -6,9 +9,10 @@ from loguru import logger
 from PySide6.QtCore import QFile, Qt, QTimer
 from PySide6.QtGui import QColor, QImage, QPalette, QPixmap
 from PySide6.QtUiTools import QUiLoader
-from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QStyleFactory, QTextBrowser
+from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QTextBrowser
 
 from lib.threat_eval import ThreatDetector
+from lib.threat_summery import ThreatSummaryGenerator
 
 
 class MainWindow:
@@ -51,9 +55,19 @@ class MainWindow:
         # Variable to track threat estimate
         self.threat_estimate = "FRAME CLEAR"  # Possible values: "FRAME CLEAR", "SAFE", "CAUTION", "WARNING", "DANGER"
         self.wireframe_color = (255, 255, 255)
-        
+
         # Theme tracking
         self.current_theme = "System"  # Possible values: "System", "Light", "Dark"
+
+        # --- Load Anthropic API key for summary generation ---
+        anthropic_key = self._load_anthropic_api_key()
+        if anthropic_key:
+            try:
+                self.summary_generator = ThreatSummaryGenerator(anthropic_key)
+            except Exception as e:
+                logger.warning(f"Failed to initialize summary generator: {e}")
+        else:
+            logger.warning("No Anthropic API key found - summary generation disabled")
 
         # --- Load UI ---
         ui_path = os.path.join(os.path.dirname(__file__), "designer2.ui")
@@ -147,6 +161,17 @@ class MainWindow:
             # Apply system theme on startup
             self.apply_theme("System")
 
+        # Summary text widget and generate button
+        self.summary_text = self.window.findChild(QTextBrowser, "stats_text_2")
+        generate_button = self.window.findChild(QPushButton, "pushButton")
+        if generate_button:
+            self.generate_button = generate_button
+            generate_button.clicked.connect(self.on_generate_summary)
+            # Disable button if no API key configured
+            if not self.summary_generator:
+                generate_button.setEnabled(False)
+                generate_button.setToolTip("Add 'anthropic_api_key' to gui/settings.json to enable")
+
     def update_threat_level(self, threat_estimate):
         """Update the threat level label text and color"""
         self.threat_estimate = threat_estimate
@@ -198,7 +223,7 @@ class MainWindow:
     def apply_theme(self, theme: str):
         """Apply the selected theme (System, Light, or Dark)"""
         self.current_theme = theme
-        
+
         # Determine effective theme
         if theme == "System":
             use_dark = self._is_system_dark_mode()
@@ -206,24 +231,24 @@ class MainWindow:
             use_dark = True
         else:  # Light
             use_dark = False
-        
+
         # Clear inline stylesheets from child widgets (they override parent styles)
         self._clear_child_stylesheets()
-        
+
         if use_dark:
             self._apply_dark_theme()
         else:
             self._apply_light_theme()
-        
+
         # Re-apply threat level styling after theme change
         self.update_threat_level(self.threat_estimate)
         # Re-apply security level combo styling
-        self.update_security_level(self.sec_level_combo.currentText() if hasattr(self, 'sec_level_combo') else "Low")
+        self.update_security_level(self.sec_level_combo.currentText() if hasattr(self, "sec_level_combo") else "Low")
 
     def _clear_child_stylesheets(self):
         """Clear inline stylesheets from child widgets so parent theme can apply"""
         from PySide6.QtWidgets import QWidget
-        
+
         # Find all child widgets and clear their inline stylesheets
         for child in self.window.findChildren(QWidget):
             if child.styleSheet():
@@ -608,7 +633,9 @@ class MainWindow:
                 landmark_list=results.face_landmarks,
                 connections=self._mp_face_mesh_module.FACEMESH_TESSELATION,
                 landmark_drawing_spec=None,
-                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=1, circle_radius=1),
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(
+                    color=self.wireframe_color, thickness=1, circle_radius=1
+                ),
             )
             # Draw contours
             self._mp_drawing.draw_landmarks(
@@ -616,7 +643,9 @@ class MainWindow:
                 landmark_list=results.face_landmarks,
                 connections=self._mp_face_mesh_module.FACEMESH_CONTOURS,
                 landmark_drawing_spec=None,
-                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=1, circle_radius=1),
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(
+                    color=self.wireframe_color, thickness=1, circle_radius=1
+                ),
             )
 
         # Draw left hand landmarks
@@ -625,8 +654,12 @@ class MainWindow:
                 image=wireframe,
                 landmark_list=results.left_hand_landmarks,
                 connections=self._mp_hands_module.HAND_CONNECTIONS,
-                landmark_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
-                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
+                landmark_drawing_spec=self._mp_drawing.DrawingSpec(
+                    color=self.wireframe_color, thickness=2, circle_radius=3
+                ),
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(
+                    color=self.wireframe_color, thickness=2, circle_radius=3
+                ),
             )
 
         # Draw right hand landmarks
@@ -635,8 +668,12 @@ class MainWindow:
                 image=wireframe,
                 landmark_list=results.right_hand_landmarks,
                 connections=self._mp_hands_module.HAND_CONNECTIONS,
-                landmark_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
-                connection_drawing_spec=self._mp_drawing.DrawingSpec(color=self.wireframe_color, thickness=2, circle_radius=3),
+                landmark_drawing_spec=self._mp_drawing.DrawingSpec(
+                    color=self.wireframe_color, thickness=2, circle_radius=3
+                ),
+                connection_drawing_spec=self._mp_drawing.DrawingSpec(
+                    color=self.wireframe_color, thickness=2, circle_radius=3
+                ),
             )
 
         return wireframe
@@ -648,9 +685,58 @@ class MainWindow:
         if msg_type in ("core_metrics", "edge_metrics"):
             self.threat_score = self.detector.process_message(message)
 
+    def _load_anthropic_api_key(self) -> str:
+        """Load Anthropic API key from gui/settings.json."""
+        settings_path = Path(__file__).parent / "settings.json"
+        if not settings_path.exists():
+            logger.warning(f"Settings file not found: {settings_path}")
+            return ""
+        try:
+            with open(settings_path) as f:
+                settings = json.load(f)
+                return settings.get("anthropic_api_key", "")
+        except (json.JSONDecodeError, Exception) as e:
+            logger.error(f"Failed to load settings: {e}")
+            return ""
+
+    def on_generate_summary(self):
+        if not self.summary_generator:
+            return
+
+        # Update UI to show loading state
+        if self.summary_text:
+            self.summary_text.setText("Generating summary...")
+        if hasattr(self, "generate_button"):
+            self.generate_button.setEnabled(False)
+
+        # Capture metrics snapshot for the thread
+        metrics_snapshot = self.vitals.copy()
+
+        try:
+            summary = self.summary_generator.generate_summary(metrics_snapshot)
+            self._on_summary_complete(summary)
+        except Exception as e:
+            logger.error(f"Summary generation failed: {e}")
+            self._on_summary_error(f"{e}")
+
+    def _on_summary_complete(self, summary: str):
+        """Handle successful summary generation (called on main thread)."""
+        if self.summary_text:
+            self.summary_text.setText(summary)
+        if hasattr(self, "generate_button"):
+            self.generate_button.setEnabled(True)
+
+    def _on_summary_error(self, error_msg: str):
+        """Handle summary generation error (called on main thread)."""
+        if self.summary_text:
+            self.summary_text.setText(f"Error: {error_msg}")
+        if hasattr(self, "generate_button"):
+            self.generate_button.setEnabled(True)
+
     def show(self):
         # Use WindowStaysOnTopHint temporarily to force window to front on Windows
         from PySide6.QtCore import Qt as QtCore
+
         original_flags = self.window.windowFlags()
         self.window.setWindowFlags(original_flags | QtCore.WindowStaysOnTopHint)
         self.window.show()
