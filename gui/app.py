@@ -5,13 +5,13 @@ from pathlib import Path
 import cv2
 import mediapipe as mp
 from loguru import logger
-from PySide6.QtCore import QFile, QObject, Qt, QThread, QTimer, Signal
+from PySide6.QtCore import QFile, Qt, QThread, QTimer, Signal
 from PySide6.QtGui import QColor, QImage, QPalette, QPixmap
 from PySide6.QtUiTools import QUiLoader
 from PySide6.QtWidgets import QApplication, QComboBox, QLabel, QMessageBox, QPushButton, QTextBrowser
 
 from lib.threat_eval import ThreatDetector
-from lib.threat_summery import ThreatSummaryGenerator
+from lib.threat_summary import ThreatSummaryGenerator
 
 
 class SummaryWorker(QThread):

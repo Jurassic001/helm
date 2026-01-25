@@ -422,7 +422,7 @@ class HelmVitalsBackend:
             self.config.video_url,
             "--verbosity",
             str(self.config.verbosity),
-            "--enable_micromotion"
+            "--enable_micromotion",
         ]
 
         if self.config.enable_edge_metrics:

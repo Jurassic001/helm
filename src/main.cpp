@@ -1,14 +1,14 @@
 /**
  * @file main.cpp
  * @brief Headless vitals monitoring application for security threat assessment.
- * 
+ *
  * Outputs structured JSON to stdout for consumption by Python frontend.
  * Designed for 4K camera input with optimal positioning (doorbell/security camera).
- * 
+ *
  * Usage: ./helm_vitals --api_key <YOUR_API_KEY> [options]
  */
 
-// stdlib includes
+ // stdlib includes
 #include <string>
 #include <filesystem>
 #include <fstream>
@@ -75,22 +75,22 @@ class JsonOutputter {
 public:
     void output_json(const std::string& json_type, const std::string& json_content) {
         std::lock_guard<std::mutex> lock(output_mutex_);
-        std::cout << "{\"type\":\"" << json_type << "\",\"timestamp_ms\":" 
-                  << get_timestamp_ms() << ",\"data\":" << json_content << "}" << std::endl;
+        std::cout << "{\"type\":\"" << json_type << "\",\"timestamp_ms\":"
+            << get_timestamp_ms() << ",\"data\":" << json_content << "}" << std::endl;
     }
 
     void output_error(const std::string& error_message) {
         std::lock_guard<std::mutex> lock(output_mutex_);
-        std::cout << "{\"type\":\"error\",\"timestamp_ms\":" << get_timestamp_ms() 
-                  << ",\"message\":\"" << escape_json(error_message) << "\"}" << std::endl;
+        std::cout << "{\"type\":\"error\",\"timestamp_ms\":" << get_timestamp_ms()
+            << ",\"message\":\"" << escape_json(error_message) << "\"}" << std::endl;
     }
 
     void output_status(int status_code, const std::string& description, int64_t frame_timestamp) {
         std::lock_guard<std::mutex> lock(output_mutex_);
         std::cout << "{\"type\":\"status\",\"timestamp_ms\":" << get_timestamp_ms()
-                  << ",\"data\":{\"code\":" << status_code 
-                  << ",\"description\":\"" << escape_json(description) << "\""
-                  << ",\"frame_timestamp\":" << frame_timestamp << "}}" << std::endl;
+            << ",\"data\":{\"code\":" << status_code
+            << ",\"description\":\"" << escape_json(description) << "\""
+            << ",\"frame_timestamp\":" << frame_timestamp << "}}" << std::endl;
     }
 
 private:
@@ -106,12 +106,12 @@ private:
         std::string output;
         for (char c : input) {
             switch (c) {
-                case '"': output += "\\\""; break;
-                case '\\': output += "\\\\"; break;
-                case '\n': output += "\\n"; break;
-                case '\r': output += "\\r"; break;
-                case '\t': output += "\\t"; break;
-                default: output += c;
+            case '"': output += "\\\""; break;
+            case '\\': output += "\\\\"; break;
+            case '\n': output += "\\n"; break;
+            case '\r': output += "\\r"; break;
+            case '\t': output += "\\t"; break;
+            default: output += c;
             }
         }
         return output;
@@ -131,10 +131,10 @@ std::string extract_pulse_json(const presage::physiology::MetricsBuffer& metrics
     std::stringstream ss;
     ss << "{";
     bool first = true;
-    
+
     if (metrics.has_pulse()) {
         const auto& pulse = metrics.pulse();
-        
+
         // Heart rate (RepeatedPtrField<MeasurementWithConfidence>)
         if (!pulse.rate().empty()) {
             const auto& rate = *pulse.rate().rbegin();
@@ -145,7 +145,7 @@ std::string extract_pulse_json(const presage::physiology::MetricsBuffer& metrics
             ss << "}";
             first = false;
         }
-        
+
         // Pulse trace (latest value for real-time display)
         if (!pulse.trace().empty()) {
             if (!first) ss << ",";
@@ -156,7 +156,7 @@ std::string extract_pulse_json(const presage::physiology::MetricsBuffer& metrics
             ss << "}";
             first = false;
         }
-        
+
         // Strict pulse (high-precision)
         if (pulse.has_strict()) {
             if (!first) ss << ",";
@@ -167,7 +167,7 @@ std::string extract_pulse_json(const presage::physiology::MetricsBuffer& metrics
             first = false;
         }
     }
-    
+
     ss << "}";
     return ss.str();
 }
@@ -179,10 +179,10 @@ std::string extract_breathing_json(const presage::physiology::MetricsBuffer& met
     std::stringstream ss;
     ss << "{";
     bool first = true;
-    
+
     if (metrics.has_breathing()) {
         const auto& breathing = metrics.breathing();
-        
+
         // Respiratory rate (RepeatedPtrField<MeasurementWithConfidence>)
         if (!breathing.rate().empty()) {
             const auto& rate = *breathing.rate().rbegin();
@@ -193,7 +193,7 @@ std::string extract_breathing_json(const presage::physiology::MetricsBuffer& met
             ss << "}";
             first = false;
         }
-        
+
         // Upper trace (chest)
         if (!breathing.upper_trace().empty()) {
             if (!first) ss << ",";
@@ -204,7 +204,7 @@ std::string extract_breathing_json(const presage::physiology::MetricsBuffer& met
             ss << "}";
             first = false;
         }
-        
+
         // Lower trace (abdomen)
         if (!breathing.lower_trace().empty()) {
             if (!first) ss << ",";
@@ -215,7 +215,7 @@ std::string extract_breathing_json(const presage::physiology::MetricsBuffer& met
             ss << "}";
             first = false;
         }
-        
+
         // Apnea detection (RepeatedPtrField<DetectionStatus>)
         if (!breathing.apnea().empty()) {
             if (!first) ss << ",";
@@ -226,7 +226,7 @@ std::string extract_breathing_json(const presage::physiology::MetricsBuffer& met
             ss << "}";
             first = false;
         }
-        
+
         // Amplitude (RepeatedPtrField<Measurement>)
         if (!breathing.amplitude().empty()) {
             if (!first) ss << ",";
@@ -238,7 +238,7 @@ std::string extract_breathing_json(const presage::physiology::MetricsBuffer& met
             first = false;
         }
     }
-    
+
     ss << "}";
     return ss.str();
 }
@@ -249,10 +249,10 @@ std::string extract_breathing_json(const presage::physiology::MetricsBuffer& met
 std::string extract_blood_pressure_json(const presage::physiology::MetricsBuffer& metrics) {
     std::stringstream ss;
     ss << "{";
-    
+
     if (metrics.has_blood_pressure()) {
         const auto& bp = metrics.blood_pressure();
-        
+
         // Phasic blood pressure (RepeatedPtrField<MeasurementWithConfidence>)
         if (!bp.phasic().empty()) {
             const auto& phasic = *bp.phasic().rbegin();
@@ -263,7 +263,7 @@ std::string extract_blood_pressure_json(const presage::physiology::MetricsBuffer
             ss << "}";
         }
     }
-    
+
     ss << "}";
     return ss.str();
 }
@@ -275,10 +275,10 @@ std::string extract_face_json(const presage::physiology::MetricsBuffer& metrics)
     std::stringstream ss;
     ss << "{";
     bool first = true;
-    
+
     if (metrics.has_face()) {
         const auto& face = metrics.face();
-        
+
         // Blinking detection (RepeatedPtrField<DetectionStatus>)
         if (!face.blinking().empty()) {
             const auto& blink = *face.blinking().rbegin();
@@ -288,7 +288,7 @@ std::string extract_face_json(const presage::physiology::MetricsBuffer& metrics)
             ss << "}";
             first = false;
         }
-        
+
         // Talking detection (RepeatedPtrField<DetectionStatus>)
         if (!face.talking().empty()) {
             if (!first) ss << ",";
@@ -299,7 +299,7 @@ std::string extract_face_json(const presage::physiology::MetricsBuffer& metrics)
             ss << "}";
             first = false;
         }
-        
+
         // Micro-expressions (RepeatedPtrField<MicroExpression>)
         if (!face.micro_expression().empty()) {
             if (!first) ss << ",";
@@ -310,7 +310,7 @@ std::string extract_face_json(const presage::physiology::MetricsBuffer& metrics)
             ss << "}";
         }
     }
-    
+
     ss << "}";
     return ss.str();
 }
@@ -322,11 +322,11 @@ std::string extract_edge_metrics_json(const presage::physiology::Metrics& metric
     std::stringstream ss;
     ss << "{";
     bool first = true;
-    
+
     // Edge breathing traces
     if (metrics.has_breathing()) {
         const auto& breathing = metrics.breathing();
-        
+
         if (!breathing.upper_trace().empty()) {
             const auto& latest = *breathing.upper_trace().rbegin();
             ss << "\"chest_breathing\":{";
@@ -335,7 +335,7 @@ std::string extract_edge_metrics_json(const presage::physiology::Metrics& metric
             ss << "}";
             first = false;
         }
-        
+
         if (!breathing.lower_trace().empty()) {
             if (!first) ss << ",";
             const auto& latest = *breathing.lower_trace().rbegin();
@@ -346,11 +346,11 @@ std::string extract_edge_metrics_json(const presage::physiology::Metrics& metric
             first = false;
         }
     }
-    
+
     // Micromotion
     if (metrics.has_micromotion()) {
         const auto& mm = metrics.micromotion();
-        
+
         if (!mm.glutes().empty()) {
             if (!first) ss << ",";
             const auto& latest = *mm.glutes().rbegin();
@@ -360,7 +360,7 @@ std::string extract_edge_metrics_json(const presage::physiology::Metrics& metric
             ss << "}";
             first = false;
         }
-        
+
         if (!mm.knees().empty()) {
             if (!first) ss << ",";
             const auto& latest = *mm.knees().rbegin();
@@ -371,7 +371,7 @@ std::string extract_edge_metrics_json(const presage::physiology::Metrics& metric
             first = false;
         }
     }
-    
+
     // EDA (Electrodermal Activity - stress indicator)
     if (metrics.has_eda() && !metrics.eda().trace().empty()) {
         if (!first) ss << ",";
@@ -381,7 +381,7 @@ std::string extract_edge_metrics_json(const presage::physiology::Metrics& metric
         ss << ",\"stable\":" << (latest.stable() ? "true" : "false");
         ss << "}";
     }
-    
+
     ss << "}";
     return ss.str();
 }
@@ -393,7 +393,7 @@ absl::Status run_vitals_monitor(
     bool show_gui
 ) {
     spectra::container::CpuContinuousRestForegroundContainer container(settings);
-    
+
     bool enable_edge_metrics = absl::GetFlag(FLAGS_enable_edge_metrics);
     int verbosity = absl::GetFlag(FLAGS_verbosity);
 
@@ -429,29 +429,29 @@ absl::Status run_vitals_monitor(
         [verbosity](
             const presage::physiology::MetricsBuffer& metrics_buffer,
             int64_t timestamp_milliseconds
-        ) -> absl::Status {
-            // Build comprehensive metrics JSON
-            std::stringstream ss;
-            ss << "{";
-            ss << "\"frame_timestamp\":" << timestamp_milliseconds;
-            ss << ",\"pulse\":" << extract_pulse_json(metrics_buffer);
-            ss << ",\"breathing\":" << extract_breathing_json(metrics_buffer);
-            ss << ",\"blood_pressure\":" << extract_blood_pressure_json(metrics_buffer);
-            ss << ",\"face\":" << extract_face_json(metrics_buffer);
-            ss << "}";
-            
-            g_outputter.output_json("core_metrics", ss.str());
-            
-            // Also output raw protobuf JSON for debugging at high verbosity
-            if (verbosity >= 3) {
-                std::string raw_json;
-                google::protobuf::util::JsonPrintOptions options;
-                options.add_whitespace = false;
-                google::protobuf::util::MessageToJsonString(metrics_buffer, &raw_json, options);
-                g_outputter.output_json("core_metrics_raw", raw_json);
-            }
-            
-            return absl::OkStatus();
+            ) -> absl::Status {
+                // Build comprehensive metrics JSON
+                std::stringstream ss;
+                ss << "{";
+                ss << "\"frame_timestamp\":" << timestamp_milliseconds;
+                ss << ",\"pulse\":" << extract_pulse_json(metrics_buffer);
+                ss << ",\"breathing\":" << extract_breathing_json(metrics_buffer);
+                ss << ",\"blood_pressure\":" << extract_blood_pressure_json(metrics_buffer);
+                ss << ",\"face\":" << extract_face_json(metrics_buffer);
+                ss << "}";
+
+                g_outputter.output_json("core_metrics", ss.str());
+
+                // Also output raw protobuf JSON for debugging at high verbosity
+                if (verbosity >= 3) {
+                    std::string raw_json;
+                    google::protobuf::util::JsonPrintOptions options;
+                    options.add_whitespace = false;
+                    google::protobuf::util::MessageToJsonString(metrics_buffer, &raw_json, options);
+                    g_outputter.output_json("core_metrics_raw", raw_json);
+                }
+
+                return absl::OkStatus();
         }
     ));
 
@@ -462,7 +462,7 @@ absl::Status run_vitals_monitor(
             [verbosity](const presage::physiology::Metrics& metrics, int64_t input_timestamp) {
                 std::string edge_json = extract_edge_metrics_json(metrics);
                 g_outputter.output_json("edge_metrics", edge_json);
-                
+
                 // Raw output at high verbosity
                 if (verbosity >= 3) {
                     std::string raw_json;
@@ -471,7 +471,7 @@ absl::Status run_vitals_monitor(
                     google::protobuf::util::MessageToJsonString(metrics, &raw_json, options);
                     g_outputter.output_json("edge_metrics_raw", raw_json);
                 }
-                
+
                 return absl::OkStatus();
             }
         ));
@@ -479,12 +479,12 @@ absl::Status run_vitals_monitor(
 
     // Initialize and run
     MP_RETURN_IF_ERROR(container.Initialize());
-    
+
     // Output startup message
     g_outputter.output_json("system", "{\"event\":\"initialized\",\"message\":\"Vitals monitoring started\"}");
-    
+
     MP_RETURN_IF_ERROR(container.Run());
-    
+
     return absl::OkStatus();
 }
 
@@ -493,14 +493,14 @@ int main(int argc, char** argv) {
     // When stdout is piped, C++ stdlib defaults to 4KB block buffering
     // This ensures each JSON line is immediately available to the reader
     setvbuf(stdout, NULL, _IONBF, 0);
-    
+
     // Suppress SDK internal warnings (one_euro_filter timestamp warnings)
     // Must be set BEFORE InitGoogleLogging()
     // 0=INFO, 1=WARNING, 2=ERROR, 3=FATAL
     FLAGS_minloglevel = 2;  // Only show ERROR and FATAL
-    
+
     google::InitGoogleLogging(argv[0]);
-    
+
     absl::SetProgramUsageMessage(
         "Helm Vitals Monitor - Security threat assessment via physiological metrics.\n"
         "Outputs structured JSON to stdout for consumption by Python frontend.\n\n"
@@ -519,7 +519,7 @@ int main(int argc, char** argv) {
         "  --show_gui   - Show SmartSpectra debug GUI (default: headless)\n"
     );
     absl::ParseCommandLine(argc, argv);
-    
+
     // Validate API key
     std::string api_key = absl::GetFlag(FLAGS_api_key);
     if (api_key.empty()) {
@@ -527,7 +527,8 @@ int main(int argc, char** argv) {
         const char* env_key = std::getenv("SMARTSPECTRA_API_KEY");
         if (env_key) {
             api_key = env_key;
-        } else {
+        }
+        else {
             g_outputter.output_error("API key required. Use --api_key or set SMARTSPECTRA_API_KEY");
             return EXIT_FAILURE;
         }
@@ -535,15 +536,16 @@ int main(int argc, char** argv) {
 
     // Build settings
     settings::Settings<settings::OperationMode::Continuous, settings::IntegrationMode::Rest> app_settings{};
-    
+
     // Video source settings
     std::string video_url = absl::GetFlag(FLAGS_video_url);
     if (!video_url.empty()) {
         // Use network stream (from Windows FFmpeg)
         app_settings.video_source.input_video_path = video_url;
-        g_outputter.output_json("system", 
+        g_outputter.output_json("system",
             "{\"event\":\"video_source\",\"type\":\"stream\",\"url\":\"" + video_url + "\"}");
-    } else {
+    }
+    else {
         // Use local camera device
         app_settings.video_source.device_index = absl::GetFlag(FLAGS_camera_device_index);
         app_settings.video_source.capture_width_px = absl::GetFlag(FLAGS_capture_width_px);
@@ -551,7 +553,7 @@ int main(int argc, char** argv) {
         app_settings.video_source.codec = absl::GetFlag(FLAGS_codec);
         app_settings.video_source.auto_lock = false;  // Disable auto exposure lock for better compatibility
     }
-    
+
     // General settings
     app_settings.headless = !absl::GetFlag(FLAGS_show_gui);  // Show GUI if --show_gui is set
     app_settings.interframe_delay_ms = 33;  // ~30 FPS to match camera frame rate
@@ -569,10 +571,10 @@ int main(int argc, char** argv) {
     }
     app_settings.enable_edge_metrics = absl::GetFlag(FLAGS_enable_edge_metrics);
     app_settings.verbosity_level = absl::GetFlag(FLAGS_verbosity);
-    
+
     // Continuous mode settings
     app_settings.continuous.preprocessed_data_buffer_duration_s = absl::GetFlag(FLAGS_buffer_duration);
-    
+
     // REST API settings
     app_settings.integration.api_key = api_key;
 
@@ -583,7 +585,7 @@ int main(int argc, char** argv) {
         g_outputter.output_error(std::string(status.message()));
         return EXIT_FAILURE;
     }
-    
+
     g_outputter.output_json("system", "{\"event\":\"shutdown\",\"message\":\"Vitals monitoring stopped\"}");
     return 0;
 }

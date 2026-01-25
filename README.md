@@ -1,8 +1,6 @@
 # Helm
 
-<!-- TODO: Overhaul project description -->
-
-A security-focused vitals monitoring application that assesses physiological threat indicators via camera input. Combines a Python GUI frontend with a C++ backend interfacing with the [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) for real-time measurements (pulse, breathing, blood pressure, stress indicators).
+A security-focused monitoring application that assesses physiological threat indicators via camera input. Combines a Python GUI frontend with a C++ backend interfacing using the [SmartSpectra SDK](https://docs.physiology.presagetech.com/cpp/annotated.html) for real-time measurements (pulse, breathing, blood pressure, stress indicators).
 
 **Use cases:** Smart doorbells, security cameras, access control systems.
 
@@ -79,87 +77,41 @@ make
 uv run main.py
 ```
 
-Press `Ctrl+C` to quit.
+Press `Ctrl+C` to quit, or click the "Quit" button in the GUI.
 
 ## Architecture
 
 ```
 helm/
-├── main.py              # Python entry point (launches C++ backend)
-├── gui/app.py           # PySide6 GUI (in development)
+├── main.py                  # Python entry point (orchestrates backend + GUI)
+├── lib/
+│   ├── startup.py           # FFmpegStream + HelmBackend (Windows↔WSL communication)
+│   ├── threat_eval.py       # ThreatDetector (vitals normalization, threat scoring)
+│   └── threat_summary.py    # Claude AI-powered threat summaries
+├── gui/
+│   ├── app.py               # PySide6 MainWindow (camera feed, MediaPipe overlay)
+│   ├── designer2.ui         # Qt Designer UI definition
+│   └── settings.json        # API keys configuration
 └── src/
-    ├── main.cpp         # Headless vitals processor (JSON output)
-    └── CMakeLists.txt   # Build configuration
+    ├── main.cpp             # C++ SmartSpectra SDK integration (JSON output)
+    └── CMakeLists.txt       # Build configuration
 ```
 
-### JSON Output Format
+### Data Flow
 
-<!-- TODO: This shouldn't be user-facing -->
-
-```json
-// status message structure
-{
-    "type": "status",
-    "timestamp_ms": 1737734400000,
-    "data": {
-        "code": 0,
-        "description": "OK",
-        "frame_timestamp": 123456
-    }
-}
-
-// core_mectrics message structure
-{
-    "type": "core_metrics",
-    "timestamp_ms": 1737734400100,
-    "data": {
-        "pulse": {
-            "heart_rate": {
-                "value": 72,
-                "stable": true,
-                "confidence": 0.95
-            }
-        },
-        "breathing": {
-            "respiratory_rate": {
-                "value": 16,
-                "stable": true
-            }
-        },
-        "blood_pressure": {
-            "phasic": {
-                "value": 120,
-                "stable": false
-            }
-        },
-        "face": {
-            "blinking": {
-                "detected": false,
-                "stable": true
-            },
-            "talking": {
-                "detected": false,
-                "stable": true
-            }
-        }
-    }
-}
-
-// edge_metrics message structure
-{
-    "type": "edge_metrics",
-    "timestamp_ms": 1737734400050,
-    "data": {
-        "chest_breathing": {
-            "value": 0.42,
-            "stable": true
-        },
-        "eda": {
-            "value": 0.15,
-            "stable": false
-        }
-    }
-}
+```
+  Windows (Python)                     WSL2 (C++)
+┌─────────────────┐                ┌─────────────────┐
+│ main.py         │                │ helm_vitals     │
+│   ↓             │  TCP stream    │   (main.cpp)    │
+│ FFmpegStream ───┼───────────────►│   SmartSpectra  │
+│   (startup.py)  │                │       ↓         │
+│       ↓         │  JSON stdout   │   JSON output   │
+│ HelmBackend ────┼◄───────────────┼─────────────────┘
+│       ↓         │
+│ MainWindow      │
+│   (app.py)      │
+└─────────────────┘
 ```
 
 ## License
