@@ -23,6 +23,15 @@ STREAM_PORT = 5000
 VERBOSITY = 1
 SHOW_GUI = False
 
+logger.configure(
+    handlers=[
+        {
+            "sink": sys.stderr,
+            "level": "TRACE" if VERBOSITY == 3 else "DEBUG" if VERBOSITY == 2 else "INFO",
+            "format": "<lvl><b>{level}</b></lvl> on <c>{module}</c>:<c>{function}</c>:<c>{line}</c> after <g>{elapsed.seconds} second(s)</g> - <lvl>{message}</lvl>",
+        }
+    ]
+)
 
 def load_api_key() -> str:
     """Load API key from gui/settings.json."""
